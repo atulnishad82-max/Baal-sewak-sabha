@@ -13,15 +13,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Extract Project ZIP & Cleanup Old Logo
+      - name: Extract Project ZIP
         run: |
           unzip -q "Zip file.zip"
           if [ -d "baal-sewak-sabha-native-android" ]; then
             cp -r baal-sewak-sabha-native-android/* .
           fi
-          # पुराने कामचलाऊ/कार्टून लोगो को पूरी तरह हटाना
-          find . -name "ic_launcher*" -exec rm -f {} +
-          find . -name "app_logo*" -exec rm -f {} +
 
       - name: Inject Original Image Logo
         run: |
@@ -32,15 +29,15 @@ jobs:
           mkdir -p app/src/main/res/mipmap-hdpi
           mkdir -p app/src/main/res/mipmap-mdpi
           
-          # अपलोड किये गए नए असली लोगो (1003244085.jpg या logo.png) को तलाशना
+          # यहाँ अपलोड किए गए माँ दुर्गा जी के ओरिजिनल लोगो (logo.png/logo.jpg/1003244085) को खोजा जा रहा है
           NEW_LOGO=$(find . -maxdepth 2 -iname "*logo*" -o -iname "*1003244085*" | head -n 1)
           if [ -n "$NEW_LOGO" ]; then
             echo "Injecting new logo from: $NEW_LOGO"
-            # ऐप के अंदर और स्प्लैश स्क्रीन के लिए 
+            # Drawable फ़ोल्डर में ऐप और स्प्लैश के लिए सेट करना
             cp "$NEW_LOGO" app/src/main/res/drawable/app_logo.png
             cp "$NEW_LOGO" app/src/main/res/drawable/app_logo.jpg
             
-            # फ़ोन की होम स्क्रीन के ऐप आइकॉन (Launcher Icons) के लिए
+            # फ़ोन होम स्क्रीन के आइकॉन के लिए (सभी साइज़)
             for dir in mipmap-xxxhdpi mipmap-xxhdpi mipmap-xhdpi mipmap-hdpi mipmap-mdpi; do
               cp "$NEW_LOGO" app/src/main/res/$dir/ic_launcher.png
               cp "$NEW_LOGO" app/src/main/res/$dir/ic_launcher_round.png
@@ -48,15 +45,6 @@ jobs:
           else
             echo "WARNING: Original Logo not found! Double check your upload."
           fi
-
-      - name: Update Kotlin/Compose code to load Image Logo
-        run: |
-          # यह कोड में पुराने 'सूरज / Brightness' आइकॉन को हटाकर 'app_logo' (असली लोगो) को लोड करवाएगा
-          find app/src/main -name "Screens.kt" -exec sed -i 's/Icons.Default.Brightness7/androidx.compose.ui.res.painterResource(id = com.baalsewaksabha.app.R.drawable.app_logo)/g' {} + || true
-          find app/src/main -name "Screens.kt" -exec sed -i 's/Icon(/Image(/g' {} + || true
-          # Icon से Image में बदलने पर tint (कलर फ़िल्टर) हटाना ताकि माँ दुर्गा का असली लाल-पीला रंग दिखे, न कि केसरिया रंग की परछाई
-          find app/src/main -name "Screens.kt" -exec sed -i 's/tint = DevotionalSaffron,//g' {} + || true
-          find app/src/main -name "Screens.kt" -exec sed -i 's/tint = DevotionalSaffron//g' {} + || true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -73,5 +61,5 @@ jobs:
       - name: Upload Finished APK
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-Original-Logo-Fixed
+          name: Baal-Sewak-Sabha-Original-Logo-NewBuild
           path: "**/build/outputs/apk/debug/*.apk"
