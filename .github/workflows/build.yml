@@ -20,25 +20,22 @@ jobs:
             cp -rf baal-sewak-sabha-native-android/* .
           fi
 
-      - name: Set Original Logo Everywhere
+      - name: Setup Original Logo Safely
         run: |
-          # असली लोगो फ़ाइल को ढूँढना
+          # असली लोगो फ़ाइल खोजना
           LOGO=$(find . -maxdepth 2 \( -iname "*logo*" -o -iname "*1003244085*" \) -type f | head -n 1)
           echo "Found logo: $LOGO"
 
           if [ -n "$LOGO" ]; then
             mkdir -p app/src/main/res/drawable
-            cp -f "$LOGO" app/src/main/res/drawable/app_logo.png
-            cp -f "$LOGO" app/src/main/res/drawable/app_logo.jpg
-
-            # पुराने डिफॉल्ट XML आइकन हटाना ताकि असली फोटो दिखे
-            rm -rf app/src/main/res/mipmap-anydpi*
-
-            # सभी साइज़ के ऐप आइकॉन में असली लोगो लगाना
-            for dir in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-              mkdir -p app/src/main/res/$dir
-              cp -f "$LOGO" app/src/main/res/$dir/ic_launcher.png
-              cp -f "$LOGO" app/src/main/res/$dir/ic_launcher_round.png
+            # दोनों फॉर्मेट सपोर्ट के लिए
+            cp -f "$LOGO" app/src/main/res/drawable/app_logo.png || true
+            
+            # ऐप आइकॉन सेट करना
+            for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+              mkdir -p app/src/main/res/$d
+              cp -f "$LOGO" app/src/main/res/$d/ic_launcher.png || true
+              cp -f "$LOGO" app/src/main/res/$d/ic_launcher_round.png || true
             done
           fi
 
@@ -52,10 +49,11 @@ jobs:
         run: chmod +x gradlew || true
 
       - name: Compile Debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --stacktrace --info
 
       - name: Publish Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-Original-APK
+          name: Baal-Sewak-Sabha-APK
           path: "app/build/outputs/apk/debug/*.apk"
