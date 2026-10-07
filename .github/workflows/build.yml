@@ -10,75 +10,52 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Extract Project
+      - name: Extract Project Files
         run: |
           unzip -qo "Zip file.zip"
           if [ -d "baal-sewak-sabha-native-android" ]; then
             cp -rf baal-sewak-sabha-native-android/* .
           fi
 
-      - name: Replace Cartoon Icon With Original Logo
+      - name: Set Original Logo Everywhere
         run: |
-          # 1. अपलोडेड असली लोगो ढूँढना
-          LOGO=$(find . -maxdepth 2 \( -iname "*logo*" -o -iname "*1003244085*" -o -iname "*.jpg" -o -iname "*.png" \) ! -path "*/app/src/*" ! -path "*/.git/*" -type f | head -n 1)
-          echo "Found Original Logo: $LOGO"
+          # असली लोगो फ़ाइल को ढूँढना
+          LOGO=$(find . -maxdepth 2 \( -iname "*logo*" -o -iname "*1003244085*" \) -type f | head -n 1)
+          echo "Found logo: $LOGO"
 
-          mkdir -p app/src/main/res/drawable
-          # असली फोटो को drawable में कन्वर्ट करके डालना
-          ffmpeg -y -i "$LOGO" app/src/main/res/drawable/app_logo.png
+          if [ -n "$LOGO" ]; then
+            mkdir -p app/src/main/res/drawable
+            cp -f "$LOGO" app/src/main/res/drawable/app_logo.png
+            cp -f "$LOGO" app/src/main/res/drawable/app_logo.jpg
 
-          # पुराने XML आइकन हटाना ताकि असली फोटो दिखे
-          rm -rf app/src/main/res/mipmap-anydpi*
+            # पुराने डिफॉल्ट XML आइकन हटाना ताकि असली फोटो दिखे
+            rm -rf app/src/main/res/mipmap-anydpi*
 
-          # सभी स्क्रीन साइज़ के लिए ऐप आइकन बनाना
-          for size in 48:mdpi 72:hdpi 96:xhdpi 144:xxhdpi 192:xxxhdpi; do
-            dim="${size%%:*}"
-            folder="mipmap-${size##*:}"
-            mkdir -p "app/src/main/res/$folder"
-            ffmpeg -y -i "$LOGO" -vf "scale=${dim}:${dim}" "app/src/main/res/$folder/ic_launcher.png"
-            ffmpeg -y -i "$LOGO" -vf "scale=${dim}:${dim}" "app/src/main/res/$folder/ic_launcher_round.png"
-          done
+            # सभी साइज़ के ऐप आइकॉन में असली लोगो लगाना
+            for dir in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+              mkdir -p app/src/main/res/$dir
+              cp -f "$LOGO" app/src/main/res/$dir/ic_launcher.png
+              cp -f "$LOGO" app/src/main/res/$dir/ic_launcher_round.png
+            done
+          fi
 
-          # 2. कोड में से 'सूरज/कार्टून' आइकन हटाकर माँ दुर्गा का असली फोटो लोगो लगाना
-          python3 - << 'EOF'
-          import glob, re
-
-          for path in glob.glob("**/Screens.kt", recursive=True):
-              with open(path, "r", encoding="utf-8") as f:
-                  text = f.read()
-
-              # सूरज वाले Icon को हटाकर असली फोटो Image लगाना
-              pattern = r'Icon\s*\([^)]*Brightness7[^)]*\)'
-              replacement = '''androidx.compose.foundation.Image(
-                  painter = androidx.compose.ui.res.painterResource(id = com.baalsewaksabha.app.R.drawable.app_logo),
-                  contentDescription = "Original Logo",
-                  modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                  contentScale = androidx.compose.ui.layout.ContentScale.Crop
-              )'''
-              text = re.sub(pattern, replacement, text, flags=re.DOTALL)
-
-              with open(path, "w", encoding="utf-8") as f:
-                  f.write(text)
-          print("Successfully injected Original Maa Durga Logo into App Code!")
-          EOF
-
-      - name: Setup Java
+      - name: Setup Java Development Kit
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Make Executable
+      - name: Set Execution Permissions
         run: chmod +x gradlew || true
 
-      - name: Build APK
+      - name: Compile Debug APK
         run: ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-Original-Logo
+          name: Baal-Sewak-Sabha-Original-APK
           path: "app/build/outputs/apk/debug/*.apk"
