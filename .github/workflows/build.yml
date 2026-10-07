@@ -20,26 +20,50 @@ jobs:
             cp -rf baal-sewak-sabha-native-android/* .
           fi
 
-      - name: Overwrite Default Icons With Original Logo
+      - name: Replace Cartoon Icon With Original Logo
         run: |
-          # 1. अपलोडेड असली लोगो को खोजना
-          LOGO=$(find . -maxdepth 2 -iname "*logo*" -o -iname "*1003244085*" | head -n 1)
-          echo "Found logo at: $LOGO"
+          # 1. अपलोडेड असली लोगो ढूँढना
+          LOGO=$(find . -maxdepth 2 \( -iname "*logo*" -o -iname "*1003244085*" -o -iname "*.jpg" -o -iname "*.png" \) ! -path "*/app/src/*" ! -path "*/.git/*" -type f | head -n 1)
+          echo "Found Original Logo: $LOGO"
 
-          if [ -n "$LOGO" ]; then
-            mkdir -p app/src/main/res/drawable
-            cp -f "$LOGO" app/src/main/res/drawable/app_logo.png
+          mkdir -p app/src/main/res/drawable
+          # असली फोटो को drawable में कन्वर्ट करके डालना
+          ffmpeg -y -i "$LOGO" app/src/main/res/drawable/app_logo.png
 
-            # 2. पुराने एडेप्टिव XML आइकन हटाना ताकि असली फोटो दिखे
-            rm -rf app/src/main/res/mipmap-anydpi*
+          # पुराने XML आइकन हटाना ताकि असली फोटो दिखे
+          rm -rf app/src/main/res/mipmap-anydpi*
 
-            # 3. सभी रेजोल्यूशन फोल्डर्स में लोगो डालना
-            for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-              mkdir -p app/src/main/res/$d
-              cp -f "$LOGO" app/src/main/res/$d/ic_launcher.png
-              cp -f "$LOGO" app/src/main/res/$d/ic_launcher_round.png
-            done
-          fi
+          # सभी स्क्रीन साइज़ के लिए ऐप आइकन बनाना
+          for size in 48:mdpi 72:hdpi 96:xhdpi 144:xxhdpi 192:xxxhdpi; do
+            dim="${size%%:*}"
+            folder="mipmap-${size##*:}"
+            mkdir -p "app/src/main/res/$folder"
+            ffmpeg -y -i "$LOGO" -vf "scale=${dim}:${dim}" "app/src/main/res/$folder/ic_launcher.png"
+            ffmpeg -y -i "$LOGO" -vf "scale=${dim}:${dim}" "app/src/main/res/$folder/ic_launcher_round.png"
+          done
+
+          # 2. कोड में से 'सूरज/कार्टून' आइकन हटाकर माँ दुर्गा का असली फोटो लोगो लगाना
+          python3 - << 'EOF'
+          import glob, re
+
+          for path in glob.glob("**/Screens.kt", recursive=True):
+              with open(path, "r", encoding="utf-8") as f:
+                  text = f.read()
+
+              # सूरज वाले Icon को हटाकर असली फोटो Image लगाना
+              pattern = r'Icon\s*\([^)]*Brightness7[^)]*\)'
+              replacement = '''androidx.compose.foundation.Image(
+                  painter = androidx.compose.ui.res.painterResource(id = com.baalsewaksabha.app.R.drawable.app_logo),
+                  contentDescription = "Original Logo",
+                  modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                  contentScale = androidx.compose.ui.layout.ContentScale.Crop
+              )'''
+              text = re.sub(pattern, replacement, text, flags=re.DOTALL)
+
+              with open(path, "w", encoding="utf-8") as f:
+                  f.write(text)
+          print("Successfully injected Original Maa Durga Logo into App Code!")
+          EOF
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -56,5 +80,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-Logo-APK
+          name: Baal-Sewak-Sabha-Original-Logo
           path: "app/build/outputs/apk/debug/*.apk"
