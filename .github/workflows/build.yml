@@ -20,52 +20,26 @@ jobs:
             cp -rf baal-sewak-sabha-native-android/* .
           fi
 
-      - name: Inject Logo Everywhere
+      - name: Overwrite Default Icons With Original Logo
         run: |
-          python3 - << 'EOF'
-          import os, glob, re, shutil
-          from PIL import Image
+          # 1. अपलोडेड असली लोगो को खोजना
+          LOGO=$(find . -maxdepth 2 -iname "*logo*" -o -iname "*1003244085*" | head -n 1)
+          echo "Found logo at: $LOGO"
 
-          # 1. अपलोडेड लोगो ढूंढना
-          found = None
-          for root, dirs, files in os.walk('.'):
-              for f in files:
-                  if any(k in f.lower() for k in ['logo', '1003244085']) and f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                      found = os.path.join(root, f)
-                      break
-              if found:
-                  break
+          if [ -n "$LOGO" ]; then
+            mkdir -p app/src/main/res/drawable
+            cp -f "$LOGO" app/src/main/res/drawable/app_logo.png
 
-          print("Found logo:", found)
-          if found:
-              # लोगो को सही PNG फॉर्मेट में सेव करना
-              img = Image.open(found).convert("RGBA")
-              os.makedirs("app/src/main/res/drawable", exist_ok=True)
-              img.save("app/src/main/res/drawable/app_logo.png", "PNG")
+            # 2. पुराने एडेप्टिव XML आइकन हटाना ताकि असली फोटो दिखे
+            rm -rf app/src/main/res/mipmap-anydpi*
 
-              # पुराने XML एडेप्टिव आइकॉन हटाना ताकि असली फोटो दिखे
-              for anydpi in glob.glob("app/src/main/res/mipmap-anydpi*"):
-                  shutil.rmtree(anydpi, ignore_errors=True)
-
-              for d in ["mipmap-mdpi", "mipmap-hdpi", "mipmap-xhdpi", "mipmap-xxhdpi", "mipmap-xxxhdpi"]:
-                  p = os.path.join("app/src/main/res", d)
-                  os.makedirs(p, exist_ok=True)
-                  img.save(os.path.join(p, "ic_launcher.png"), "PNG")
-                  img.save(os.path.join(p, "ic_launcher_round.png"), "PNG")
-
-          # 2. Screens.kt में स्प्लैश स्क्रीन पर असली लोगो लगाना
-          for sc in glob.glob("**/Screens.kt", recursive=True):
-              with open(sc, "r") as f:
-                  code = f.read()
-
-              pattern = r'Icon\s*\(\s*(?:imageVector\s*=\s*)?Icons\.Default\.Brightness7[^)]*\)'
-              replacement = 'androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(id = com.baalsewaksabha.app.R.drawable.app_logo), contentDescription = "Logo", modifier = androidx.compose.ui.Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit)'
-              code = re.sub(pattern, replacement, code)
-
-              with open(sc, "w") as f:
-                  f.write(code)
-          print("Logo injection complete!")
-          EOF
+            # 3. सभी रेजोल्यूशन फोल्डर्स में लोगो डालना
+            for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+              mkdir -p app/src/main/res/$d
+              cp -f "$LOGO" app/src/main/res/$d/ic_launcher.png
+              cp -f "$LOGO" app/src/main/res/$d/ic_launcher_round.png
+            done
+          fi
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -82,5 +56,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-Original-Logo-APK
+          name: Baal-Sewak-Sabha-Logo-APK
           path: "app/build/outputs/apk/debug/*.apk"
