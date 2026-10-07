@@ -20,6 +20,25 @@ jobs:
             cp -r baal-sewak-sabha-native-android/* .
           fi
 
+      - name: Replace App Logo With Original Image
+        run: |
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-xxxhdpi
+          
+          # अपलोड किए गए लोगो को ढूंढकर प्रोजेक्ट में सेट करना
+          LOGO_SRC=$(find . -maxdepth 2 -iname "logo.png" -o -iname "logo.jpg" -o -iname "*1003244085*" | head -n 1)
+          if [ -n "$LOGO_SRC" ]; then
+            echo "Found logo at: $LOGO_SRC"
+            cp "$LOGO_SRC" app/src/main/res/drawable/app_logo.png
+            cp "$LOGO_SRC" app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+            cp "$LOGO_SRC" app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
+          fi
+
+      - name: Update Splash Screen Code For Image Logo
+        run: |
+          # SplashScreen में आइकन की जगह असली इमेज लोगो लोड करने का पैच
+          find app/src/main -name "Screens.kt" -exec sed -i 's/Icons.Default.Brightness7/androidx.compose.ui.res.painterResource(id = com.baalsewaksabha.app.R.drawable.app_logo)/g' {} + || true
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -35,6 +54,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-APK
+          name: Baal-Sewak-Sabha-With-Original-Logo
           path: "**/build/outputs/apk/debug/*.apk"
-
