@@ -10,56 +10,60 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Extract Project ZIP
+      - name: Extract Project
         run: |
-          unzip -q "Zip file.zip"
+          unzip -qo "Zip file.zip"
           if [ -d "baal-sewak-sabha-native-android" ]; then
-            cp -r baal-sewak-sabha-native-android/* .
+            cp -rf baal-sewak-sabha-native-android/* .
           fi
 
-      - name: Inject Original Image Logo
+      - name: Apply Durga Mata Logo
         run: |
-          mkdir -p app/src/main/res/drawable
-          mkdir -p app/src/main/res/mipmap-xxxhdpi
-          mkdir -p app/src/main/res/mipmap-xxhdpi
-          mkdir -p app/src/main/res/mipmap-xhdpi
-          mkdir -p app/src/main/res/mipmap-hdpi
-          mkdir -p app/src/main/res/mipmap-mdpi
-          
-          # यहाँ अपलोड किए गए माँ दुर्गा जी के ओरिजिनल लोगो (logo.png/logo.jpg/1003244085) को खोजा जा रहा है
-          NEW_LOGO=$(find . -maxdepth 2 -iname "*logo*" -o -iname "*1003244085*" | head -n 1)
-          if [ -n "$NEW_LOGO" ]; then
-            echo "Injecting new logo from: $NEW_LOGO"
-            # Drawable फ़ोल्डर में ऐप और स्प्लैश के लिए सेट करना
-            cp "$NEW_LOGO" app/src/main/res/drawable/app_logo.png
-            cp "$NEW_LOGO" app/src/main/res/drawable/app_logo.jpg
-            
-            # फ़ोन होम स्क्रीन के आइकॉन के लिए (सभी साइज़)
-            for dir in mipmap-xxxhdpi mipmap-xxhdpi mipmap-xhdpi mipmap-hdpi mipmap-mdpi; do
-              cp "$NEW_LOGO" app/src/main/res/$dir/ic_launcher.png
-              cp "$NEW_LOGO" app/src/main/res/$dir/ic_launcher_round.png
+          LOGO=$(find . -maxdepth 2 \( -iname "*logo*" -o -iname "*1003244085*" \) -type f | head -n 1)
+          if [ -n "$LOGO" ]; then
+            mkdir -p app/src/main/res/drawable
+            cp -f "$LOGO" app/src/main/res/drawable/app_logo.png || true
+            rm -rf app/src/main/res/mipmap-anydpi*
+            for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+              mkdir -p app/src/main/res/$d
+              cp -f "$LOGO" app/src/main/res/$d/ic_launcher.png || true
+              cp -f "$LOGO" app/src/main/res/$d/ic_launcher_round.png || true
             done
-          else
-            echo "WARNING: Original Logo not found! Double check your upload."
           fi
 
-      - name: Set up JDK 17
+      - name: Setup Permanent Admin and Strings
+        run: |
+          # strings.xml में एडमिन विवरण स्थायी रूप से दर्ज करना
+          STR_FILE="app/src/main/res/values/strings.xml"
+          if [ -f "$STR_FILE" ]; then
+            sed -i '/<\/resources>/d' "$STR_FILE"
+            cat << 'EOF' >> "$STR_FILE"
+    <string name="admin_name">Atul</string>
+    <string name="admin_father">Raj Kumar</string>
+    <string name="admin_phone">9780475164</string>
+    <string name="admin_location">Hindustani Basti, Amritsar</string>
+</resources>
+EOF
+          fi
+
+      - name: Setup Java Development Kit
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Grant Execute Permission
+      - name: Set Permissions
         run: chmod +x gradlew || true
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --no-daemon
 
-      - name: Upload Finished APK
+      - name: Upload Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-Original-Logo-NewBuild
-          path: "**/build/outputs/apk/debug/*.apk"
+          name: Baal-Sewak-Sabha-Final-APK
+          path: "app/build/outputs/apk/debug/*.apk"
