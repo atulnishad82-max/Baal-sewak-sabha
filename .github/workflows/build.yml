@@ -20,17 +20,28 @@ jobs:
             cp -rf baal-sewak-sabha-native-android/* .
           fi
 
-      - name: Apply Durga Mata Logo
+      - name: Force Apply Durga Mata App Icon
         run: |
-          LOGO=$(find . -maxdepth 2 \( -iname "*logo*" -o -iname "*1003244085*" \) -type f | head -n 1)
+          # लोगो फ़ाइल ढूँढें
+          LOGO=$(find . -maxdepth 2 \( -iname "*logo*" -o -iname "*1003244085*" -o -iname "*.png" \) ! -path "./.git/*" -type f | head -n 1)
+          echo "Found logo at: $LOGO"
+          
           if [ -n "$LOGO" ]; then
+            # अडैप्टिव आइकन की पुरानी XML फ़ाइलें हटाएँ ताकि फ़ोर्सफुली PNG लागू हो
+            rm -rf app/src/main/res/mipmap-anydpi*
+            rm -rf app/src/main/res/drawable-anydpi*
+            rm -f app/src/main/res/mipmap-*/ic_launcher.xml
+            rm -f app/src/main/res/mipmap-*/ic_launcher_round.xml
+            
+            # ऐप के अंदर दिखने वाला लोगो भी अपडेट करें
             mkdir -p app/src/main/res/drawable
             cp -f "$LOGO" app/src/main/res/drawable/app_logo.png || true
-            rm -rf app/src/main/res/mipmap-anydpi*
-            for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-              mkdir -p app/src/main/res/$d
-              cp -f "$LOGO" app/src/main/res/$d/ic_launcher.png || true
-              cp -f "$LOGO" app/src/main/res/$d/ic_launcher_round.png || true
+
+            # हर स्क्रीन साइज़ के फ़ोल्डर में नया लोगो कॉपी करें
+            for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi drawable-mdpi drawable-hdpi drawable-xhdpi drawable-xxhdpi drawable-xxxhdpi; do
+              mkdir -p "app/src/main/res/$d"
+              cp -f "$LOGO" "app/src/main/res/$d/ic_launcher.png" || true
+              cp -f "$LOGO" "app/src/main/res/$d/ic_launcher_round.png" || true
             done
           fi
 
@@ -43,5 +54,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-Final-APK
+          name: Baal-Sewak-Sabha-Logo-Updated
           path: "app/build/outputs/apk/debug/*.apk"
