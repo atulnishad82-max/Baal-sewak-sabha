@@ -20,7 +20,7 @@ jobs:
             cp -rf baal-sewak-sabha-native-android/* .
           fi
 
-      - name: Apply Original Logo
+      - name: Apply Durga Mata Logo
         run: |
           LOGO=$(find . -maxdepth 2 \( -iname "*logo*" -o -iname "*1003244085*" \) -type f | head -n 1)
           if [ -n "$LOGO" ]; then
