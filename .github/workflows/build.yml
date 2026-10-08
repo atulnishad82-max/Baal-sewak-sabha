@@ -10,28 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Extract Project Files
+      - name: Extract Project
         run: |
           unzip -qo "Zip file.zip"
           if [ -d "baal-sewak-sabha-native-android" ]; then
             cp -rf baal-sewak-sabha-native-android/* .
           fi
 
-      - name: Setup Original Logo Safely
+      - name: Inject Admin Details, Monthly Sewa and Logo
         run: |
-          # असली लोगो फ़ाइल खोजना
+          # 1. Asli Durga Mata Logo Set Karna
           LOGO=$(find . -maxdepth 2 \( -iname "*logo*" -o -iname "*1003244085*" \) -type f | head -n 1)
-          echo "Found logo: $LOGO"
-
           if [ -n "$LOGO" ]; then
             mkdir -p app/src/main/res/drawable
-            # दोनों फॉर्मेट सपोर्ट के लिए
             cp -f "$LOGO" app/src/main/res/drawable/app_logo.png || true
-            
-            # ऐप आइकॉन सेट करना
+            rm -rf app/src/main/res/mipmap-anydpi*
             for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
               mkdir -p app/src/main/res/$d
               cp -f "$LOGO" app/src/main/res/$d/ic_launcher.png || true
@@ -39,21 +35,396 @@ jobs:
             done
           fi
 
-      - name: Setup Java Development Kit
+          # 2. Screens.kt ko naye features (Monthly Sewa, Receipt aur Permanent Admin) ke sath update karna
+          SCREEN_PATH=$(find app/src/main/java -name "Screens.kt" | head -n 1)
+          if [ -n "$SCREEN_PATH" ]; then
+            cat << 'EOF' > "$SCREEN_PATH"
+package com.baalsewaksabha.app.ui
+
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+
+val DevotionalSaffron = Color(0xFFFF6F00)
+val SoftBackground = Color(0xFFFFF9F2)
+
+object AdminDetails {
+    const val ADMIN_NAME = "Atul"
+    const val FATHER_NAME = "Raj Kumar"
+    const val PHONE_NUMBER = "9780475164"
+    const val ORGANIZATION = "Baal-Sewak-Sabha (Hindustani Basti, Amritsar)"
+}
+
+data class MonthlyReceipt(
+    val receiptNo: String,
+    val memberName: String,
+    val memberPhone: String,
+    val monthYear: String,
+    val amount: String,
+    val paymentDate: String,
+    val collectedBy: String = AdminDetails.ADMIN_NAME
+)
+
+@Composable
+fun SplashScreen(onTimeout: () -> Unit) {
+    LaunchedEffect(Unit) {
+        delay(2500)
+        onTimeout()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SoftBackground),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color.White,
+                tonalElevation = 4.dp,
+                modifier = Modifier.size(150.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Brightness7,
+                        contentDescription = "Logo",
+                        tint = DevotionalSaffron,
+                        modifier = Modifier.size(90.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "बाल सेवक सभा",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = DevotionalSaffron
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "अमृतसर (हिन्दुस्तानी बस्ती)",
+                fontSize = 16.sp,
+                color = Color.DarkGray,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(onNavigate: (String) -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("बाल सेवक सभा", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = DevotionalSaffron,
+                    titleContentColor = Color.White
+                )
+            )
+        },
+        containerColor = SoftBackground
+    ) { padding ->
+        val dashboardItems = listOf(
+            Triple("मासिक सेवा व रसीद", Icons.Default.ReceiptLong, "monthly_sewa"),
+            Triple("रसीद रिकॉर्ड सूची", Icons.Default.HistoryEdu, "receipt_list"),
+            Triple("सदस्य पंजीकरण", Icons.Default.PersonAdd, "member_reg"),
+            Triple("सदस्य सूची", Icons.Default.People, "member_list"),
+            Triple("जागरण / आयोजन", Icons.Default.Event, "jagran_reg"),
+            Triple("सेवा पंजीकरण", Icons.Default.VolunteerActivism, "sewa_reg"),
+            Triple("सहयोग / दान", Icons.Default.AccountBalance, "donation"),
+            Triple("गैलरी", Icons.Default.PhotoLibrary, "gallery"),
+            Triple("संस्था व एडमिन", Icons.Default.AdminPanelSettings, "admin_info")
+        )
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(dashboardItems) { item ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(115.dp)
+                        .clickable { onNavigate(item.third) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(3.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = item.second,
+                            contentDescription = item.first,
+                            tint = DevotionalSaffron,
+                            modifier = Modifier.size(34.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = item.first,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MonthlySewaScreen(onSaveReceipt: (MonthlyReceipt) -> Unit, onBack: () -> Unit) {
+    var memberName by remember { mutableStateOf("") }
+    var memberPhone by remember { mutableStateOf("") }
+    var selectedMonth by remember { mutableStateOf("अक्टूबर 2026") }
+    var amount by remember { mutableStateOf("100") }
+    var showDialog by remember { mutableStateOf(false) }
+    var lastReceipt by remember { mutableStateOf<MonthlyReceipt?>(null) }
+
+    val months = listOf(
+        "जनवरी", "फ़रवरी", "मार्च", "अप्रैल",
+        "मई", "जून", "जुलाई", "अगस्त",
+        "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"
+    )
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("मासिक सेवा (रसीद काटें)") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = DevotionalSaffron.copy(alpha = 0.1f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("स्थायी एडमिन: ${AdminDetails.ADMIN_NAME} S/o Sh. ${AdminDetails.FATHER_NAME}", fontWeight = FontWeight.Bold, color = DevotionalSaffron)
+                    Text("फ़ोन नंबर: ${AdminDetails.PHONE_NUMBER}", fontSize = 13.sp)
+                }
+            }
+
+            OutlinedTextField(
+                value = memberName,
+                onValueChange = { memberName = it },
+                label = { Text("सदस्य का नाम") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = memberPhone,
+                onValueChange = { memberPhone = it },
+                label = { Text("मोबाइल नंबर") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Text("सेवा का महीना चुनें:", fontWeight = FontWeight.Bold)
+            months.chunked(3).forEach { rowMonths ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    rowMonths.forEach { m ->
+                        FilterChip(
+                            selected = (selectedMonth == m),
+                            onClick = { selectedMonth = m },
+                            label = { Text(m, fontSize = 11.sp) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = amount,
+                onValueChange = { amount = it },
+                label = { Text("सदस्यता सेवा राशि (₹)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Button(
+                onClick = {
+                    if (memberName.isNotBlank()) {
+                        val receipt = MonthlyReceipt(
+                            receiptNo = "BSS-${(1000..9999).random()}",
+                            memberName = memberName,
+                            memberPhone = memberPhone,
+                            monthYear = selectedMonth,
+                            amount = amount,
+                            paymentDate = "08/10/2026"
+                        )
+                        lastReceipt = receipt
+                        onSaveReceipt(receipt)
+                        showDialog = true
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = DevotionalSaffron)
+            ) {
+                Text("सेवा जमा करें व रसीद बनाएं")
+            }
+        }
+    }
+
+    if (showDialog && lastReceipt != null) {
+        val r = lastReceipt!!
+        AlertDialog(
+            onDismissRequest = { showDialog = false; onBack() },
+            title = { Text("रसीद सुरक्षित हो गई!", fontWeight = FontWeight.Bold, color = DevotionalSaffron) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    Text("रसीद सं.: ${r.receiptNo}", fontWeight = FontWeight.Bold)
+                    Text("सदस्य: ${r.memberName} (${r.memberPhone})")
+                    Text("माह: ${r.monthYear}")
+                    Text("राशि: ₹${r.amount}", fontWeight = FontWeight.Bold, color = DevotionalSaffron)
+                    Text("दिनांक: ${r.paymentDate}")
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                    Text("अधिकृत एडमिन:", fontSize = 11.sp)
+                    Text("${AdminDetails.ADMIN_NAME} S/o ${AdminDetails.FATHER_NAME}", fontWeight = FontWeight.Bold)
+                    Text("फ़ोन: ${AdminDetails.PHONE_NUMBER}", fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDialog = false; onBack() }) {
+                    Text("ठीक है")
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AdminInfoScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("संस्था व एडमिन") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(3.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("मुख्य संस्था एडमिन", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = DevotionalSaffron)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Text("नाम: ${AdminDetails.ADMIN_NAME}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("पिता का नाम: Sh. ${AdminDetails.FATHER_NAME}", fontSize = 15.sp)
+                    Text("फ़ोन नंबर: ${AdminDetails.PHONE_NUMBER}", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text("स्थान: हिन्दुस्तानी बस्ती, अमृतसर", fontSize = 14.sp, color = Color.Gray)
+                }
+            }
+
+            Button(
+                onClick = {
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${AdminDetails.PHONE_NUMBER}"))
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = DevotionalSaffron)
+            ) {
+                Icon(Icons.Default.Call, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("सीधे कॉल करें (${AdminDetails.PHONE_NUMBER})")
+            }
+        }
+    }
+}
+EOF
+          fi
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set Execution Permissions
+      - name: Set Permissions
         run: chmod +x gradlew || true
 
-      - name: Compile Debug APK
-        run: ./gradlew assembleDebug --stacktrace --info
+      - name: Compile APK
+        run: ./gradlew assembleDebug
 
-      - name: Publish Artifact
-        if: always()
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-APK
+          name: Baal-Sewak-Sabha-Admin-Sewa-APK
           path: "app/build/outputs/apk/debug/*.apk"
