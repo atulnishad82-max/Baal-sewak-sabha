@@ -16,7 +16,7 @@ jobs:
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Setup Android SDK
@@ -24,9 +24,12 @@ jobs:
 
       - name: Generate Complete App Project
         run: |
-          rm -rf app gradle gradlew gradlew.bat build.gradle settings.gradle
-          gradle wrapper
-          
+          mkdir -p app/src/main/java/com/baalsewaksabha/app
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/values-hi
+          mkdir -p app/src/main/res/drawable
+
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -51,12 +54,6 @@ jobs:
               id 'com.android.application' version '8.2.2' apply false
           }
           EOF
-
-          mkdir -p app/src/main/java/com/baalsewaksabha/app
-          mkdir -p app/src/main/res/layout
-          mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/values-hi
-          mkdir -p app/src/main/res/drawable
 
           cat << 'EOF' > app/build.gradle
           plugins {
@@ -313,4 +310,104 @@ jobs:
 
                   String[] months = {
                       "January / जनवरी", "February / फ़रवरी", "March / मार्च",
-                      "April / अप्रैल", "May / मई",
+                      "April / अप्रैल", "May / मई", "June / जून",
+                      "July / जुलाई", "August / अगस्त", "September / सितम्बर",
+                      "October / अक्टूबर", "November / नवम्बर", "December / दिसम्बर"
+                  };
+                  ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, months);
+                  spMonth.setAdapter(adapter);
+
+                  loadRecords();
+
+                  btnSaveSewa.setOnClickListener(v -> saveRecord());
+                  btnShareReceipt.setOnClickListener(v -> shareReceipt());
+
+                  btnLangHi.setOnClickListener(v -> setAppLocale("hi"));
+                  btnLangEn.setOnClickListener(v -> setAppLocale("en"));
+              }
+
+              private void setAppLocale(String langCode) {
+                  Locale locale = new Locale(langCode);
+                  Locale.setDefault(locale);
+                  Resources res = getResources();
+                  Configuration config = res.getConfiguration();
+                  config.setLocale(locale);
+                  res.updateConfiguration(config, res.getDisplayMetrics());
+                  recreate();
+              }
+
+              private void saveRecord() {
+                  String name = etMemberName.getText().toString().trim();
+                  String amt = etAmount.getText().toString().trim();
+                  String month = spMonth.getSelectedItem().toString();
+
+                  if (name.isEmpty() || amt.isEmpty()) {
+                      Toast.makeText(this, "Kripya Naam aur Rashi bharein", Toast.LENGTH_SHORT).show();
+                      return;
+                  }
+
+                  String dateStr = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(new Date());
+                  String newEntry = "• " + name + " | " + month + " | ₹" + amt + " (" + dateStr + ")\n";
+
+                  String existing = prefs.getString("records", "");
+                  String updated = newEntry + existing;
+                  prefs.edit().putString("records", updated).apply();
+
+                  lastReceipt = "🚩 BAAL SEWAK SABHA (REGD.) 🚩\n" +
+                          "Hindustani Basti, Amritsar (Punjab)\n" +
+                          "-----------------------------------\n" +
+                          "★ DIGITAL SEWA RECEIPT ★\n" +
+                          "Sadasya: " + name + "\n" +
+                          "Mahina: " + month + "\n" +
+                          "Sewa Rashi: ₹" + amt + "\n" +
+                          "Tithi: " + dateStr + "\n" +
+                          "-----------------------------------\n" +
+                          "Vyavasthapak: Atul (S/o Raj Kumar)\n" +
+                          "Helpline: 97804-75164\n" +
+                          "॥ JAI MATA DI ॥";
+
+                  etMemberName.setText("");
+                  etAmount.setText("");
+                  loadRecords();
+                  Toast.makeText(this, "Sewa Safaltapoorvak Darj Ho Gayi!", Toast.LENGTH_SHORT).show();
+              }
+
+              private void loadRecords() {
+                  String records = prefs.getString("records", "Abhi koi record darj nahi hai.");
+                  txtRecords.setText(records);
+              }
+
+              private void shareReceipt() {
+                  if (lastReceipt.isEmpty()) {
+                      Toast.makeText(this, "Pehle koi sewa darj karein!", Toast.LENGTH_SHORT).show();
+                      return;
+                  }
+                  Intent intent = new Intent(Intent.ACTION_SEND);
+                  intent.setType("text/plain");
+                  intent.putExtra(Intent.EXTRA_SUBJECT, "Baal Sewak Sabha Sewa Receipt");
+                  intent.putExtra(Intent.EXTRA_TEXT, lastReceipt);
+                  startActivity(Intent.createChooser(intent, "Receipt Share Karein"));
+              }
+          }
+          EOF
+
+      - name: Force Apply Original Logo
+        run: |
+          LOGO=$(find . -maxdepth 2 \( -iname "*1003244085*" -o -iname "*logo*" -o -iname "*.jpg" -o -iname "*.png" \) ! -path "./.git/*" -type f | head -n 1)
+          if [ -n "$LOGO" ]; then
+            cp -f "$LOGO" app/src/main/res/drawable/ic_launcher.png
+          fi
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.5
+
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Baal-Sewak-Sabha-Registered-Final-APK
+          path: "app/build/outputs/apk/debug/*.apk"
