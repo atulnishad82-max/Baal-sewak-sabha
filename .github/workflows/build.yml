@@ -19,9 +19,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Accept Android Licenses
+      - name: Accept Licenses and Install SDK Tools
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: Generate Fresh Standalone Project
         run: |
@@ -67,8 +68,8 @@ jobs:
                   applicationId "com.baalsewaksabha.app"
                   minSdk 21
                   targetSdk 34
-                  versionCode 5
-                  versionName "5.0"
+                  versionCode 6
+                  versionName "6.0"
               }
               buildTypes {
                   release {
@@ -86,6 +87,16 @@ jobs:
           }
           EOF
 
+          cat << 'EOF' > app/src/main/res/values/themes.xml
+          <resources xmlns:tools="http://schemas.android.com/tools">
+              <style name="Theme.BaalSewakSabha" parent="Theme.MaterialComponents.Light.NoActionBar">
+                  <item name="colorPrimary">#B71C1C</item>
+                  <item name="colorPrimaryVariant">#7F0000</item>
+                  <item name="colorOnPrimary">#FFFFFF</item>
+              </style>
+          </resources>
+          EOF
+
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -95,7 +106,7 @@ jobs:
                   android:label="@string/app_name"
                   android:roundIcon="@drawable/ic_launcher"
                   android:supportsRtl="true"
-                  android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
+                  android:theme="@style/Theme.BaalSewakSabha">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
@@ -402,7 +413,7 @@ jobs:
           gradle-version: 8.2
 
       - name: Build APK
-        run: gradle :app:assembleDebug --stacktrace --no-daemon
+        run: gradle :app:assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
