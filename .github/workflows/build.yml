@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout Code
@@ -19,18 +19,24 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Generate Fresh Standalone Project
+      - name: Create Clean Project
         run: |
           mkdir -p gradle/wrapper
           cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-bin.zip
           networkTimeout=10000
           validateDistributionUrl=true
           zipStoreBase=GRADLE_USER_HOME
           zipStorePath=wrapper/dists
           EOF
+
+          cat << 'EOF' > gradlew
+          #!/bin/sh
+          exec gradle "$@"
+          EOF
+          chmod +x gradlew
 
           cat << 'EOF' > settings.gradle
           pluginManagement {
@@ -53,7 +59,7 @@ jobs:
 
           cat << 'EOF' > build.gradle
           plugins {
-              id 'com.android.application' version '8.2.2' apply false
+              id 'com.android.application' version '8.1.0' apply false
           }
           EOF
 
@@ -69,13 +75,13 @@ jobs:
           }
           android {
               namespace 'com.baalsewaksabha.app'
-              compileSdk 34
+              compileSdk 33
               defaultConfig {
                   applicationId "com.baalsewaksabha.app"
                   minSdk 21
-                  targetSdk 34
-                  versionCode 8
-                  versionName "8.0"
+                  targetSdk 33
+                  versionCode 9
+                  versionName "9.0"
               }
               buildTypes {
                   release {
@@ -398,11 +404,13 @@ jobs:
             cp -f "$LOGO" app/src/main/res/drawable/ic_launcher.png
           fi
 
-      - name: Build APK Direct
+      - name: Install Gradle
         run: |
-          curl -s "https://services.gradle.org/distributions/gradle-8.2-bin.zip" -o gradle.zip
-          unzip -q gradle.zip
-          ./gradle-8.2/bin/gradle assembleDebug --no-daemon
+          sudo apt-get update -qq
+          sudo apt-get install -y gradle
+
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
