@@ -19,11 +19,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Accept Licenses and Install SDK Tools
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
-
       - name: Generate Fresh Standalone Project
         run: |
           cat << 'EOF' > settings.gradle
@@ -47,7 +42,7 @@ jobs:
 
           cat << 'EOF' > build.gradle
           plugins {
-              id 'com.android.application' version '8.2.2' apply false
+              id 'com.android.application' version '8.1.4' apply false
           }
           EOF
 
@@ -63,13 +58,13 @@ jobs:
           }
           android {
               namespace 'com.baalsewaksabha.app'
-              compileSdk 34
+              compileSdk 33
               defaultConfig {
                   applicationId "com.baalsewaksabha.app"
                   minSdk 21
-                  targetSdk 34
-                  versionCode 6
-                  versionName "6.0"
+                  targetSdk 33
+                  versionCode 7
+                  versionName "7.0"
               }
               buildTypes {
                   release {
@@ -83,18 +78,7 @@ jobs:
           }
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'com.google.android.material:material:1.11.0'
           }
-          EOF
-
-          cat << 'EOF' > app/src/main/res/values/themes.xml
-          <resources xmlns:tools="http://schemas.android.com/tools">
-              <style name="Theme.BaalSewakSabha" parent="Theme.MaterialComponents.Light.NoActionBar">
-                  <item name="colorPrimary">#B71C1C</item>
-                  <item name="colorPrimaryVariant">#7F0000</item>
-                  <item name="colorOnPrimary">#FFFFFF</item>
-              </style>
-          </resources>
           EOF
 
           cat << 'EOF' > app/src/main/AndroidManifest.xml
@@ -106,7 +90,7 @@ jobs:
                   android:label="@string/app_name"
                   android:roundIcon="@drawable/ic_launcher"
                   android:supportsRtl="true"
-                  android:theme="@style/Theme.BaalSewakSabha">
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
@@ -240,8 +224,6 @@ jobs:
                       android:layout_width="match_parent"
                       android:layout_height="wrap_content"
                       android:text="@string/btn_add_sewa"
-                      android:backgroundTint="#B71C1C"
-                      android:textColor="#FFFFFF"
                       android:layout_marginTop="10dp" />
 
                   <TextView
@@ -267,8 +249,6 @@ jobs:
                       android:layout_width="match_parent"
                       android:layout_height="wrap_content"
                       android:text="@string/btn_share_receipt"
-                      android:backgroundTint="#1B5E20"
-                      android:textColor="#FFFFFF"
                       android:layout_marginTop="10dp" />
               </LinearLayout>
           </ScrollView>
@@ -410,10 +390,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: 8.2
+          gradle-version: 8.1.1
 
       - name: Build APK
-        run: gradle :app:assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
