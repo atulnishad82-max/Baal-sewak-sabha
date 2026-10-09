@@ -1,4 +1,3 @@
-
 name: Build Baal Sewak Sabha App
 
 on:
@@ -19,9 +18,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Generate Fresh Standalone Project
         run: |
