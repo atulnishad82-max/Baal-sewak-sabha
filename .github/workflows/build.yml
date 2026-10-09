@@ -21,6 +21,17 @@ jobs:
 
       - name: Generate Fresh Standalone Project
         run: |
+          mkdir -p gradle/wrapper
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -42,7 +53,7 @@ jobs:
 
           cat << 'EOF' > build.gradle
           plugins {
-              id 'com.android.application' version '8.1.4' apply false
+              id 'com.android.application' version '8.2.2' apply false
           }
           EOF
 
@@ -58,13 +69,13 @@ jobs:
           }
           android {
               namespace 'com.baalsewaksabha.app'
-              compileSdk 33
+              compileSdk 34
               defaultConfig {
                   applicationId "com.baalsewaksabha.app"
                   minSdk 21
-                  targetSdk 33
-                  versionCode 7
-                  versionName "7.0"
+                  targetSdk 34
+                  versionCode 8
+                  versionName "8.0"
               }
               buildTypes {
                   release {
@@ -387,13 +398,11 @@ jobs:
             cp -f "$LOGO" app/src/main/res/drawable/ic_launcher.png
           fi
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: 8.1.1
-
-      - name: Build APK
-        run: gradle assembleDebug --no-daemon
+      - name: Build APK Direct
+        run: |
+          curl -s "https://services.gradle.org/distributions/gradle-8.2-bin.zip" -o gradle.zip
+          unzip -q gradle.zip
+          ./gradle-8.2/bin/gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
