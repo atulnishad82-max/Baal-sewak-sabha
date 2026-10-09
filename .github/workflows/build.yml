@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
@@ -19,108 +19,18 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Create Clean Project
+      - name: Fast Direct APK Build
         run: |
-          mkdir -p gradle/wrapper
-          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-bin.zip
-          networkTimeout=10000
-          validateDistributionUrl=true
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
+          mkdir -p project/src/com/baalsewaksabha/app
+          mkdir -p project/res/layout
+          mkdir -p project/res/values
+          mkdir -p project/res/values-hi
+          mkdir -p project/res/drawable
+          mkdir -p project/bin
 
-          cat << 'EOF' > gradlew
-          #!/bin/sh
-          exec gradle "$@"
-          EOF
-          chmod +x gradlew
-
-          cat << 'EOF' > settings.gradle
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "BaalSewakSabha"
-          include ':app'
-          EOF
-
-          cat << 'EOF' > build.gradle
-          plugins {
-              id 'com.android.application' version '8.1.0' apply false
-          }
-          EOF
-
-          mkdir -p app/src/main/java/com/baalsewaksabha/app
-          mkdir -p app/src/main/res/layout
-          mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/values-hi
-          mkdir -p app/src/main/res/drawable
-
-          cat << 'EOF' > app/build.gradle
-          plugins {
-              id 'com.android.application'
-          }
-          android {
-              namespace 'com.baalsewaksabha.app'
-              compileSdk 33
-              defaultConfig {
-                  applicationId "com.baalsewaksabha.app"
-                  minSdk 21
-                  targetSdk 33
-                  versionCode 9
-                  versionName "9.0"
-              }
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                  }
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-          }
-          dependencies {
-              implementation 'androidx.appcompat:appcompat:1.6.1'
-          }
-          EOF
-
-          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          # Strings English
+          cat << 'EOF' > project/res/values/strings.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:allowBackup="true"
-                  android:icon="@drawable/ic_launcher"
-                  android:label="@string/app_name"
-                  android:roundIcon="@drawable/ic_launcher"
-                  android:supportsRtl="true"
-                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">Baal Sewak Sabha</string>
               <string name="org_title">Baal Sewak Sabha (Regd.)</string>
@@ -134,7 +44,9 @@ jobs:
           </resources>
           EOF
 
-          cat << 'EOF' > app/src/main/res/values-hi/strings.xml
+          # Strings Hindi
+          cat << 'EOF' > project/res/values-hi/strings.xml
+          <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">बाल सेवक सभा</string>
               <string name="org_title">बाल सेवक सभा (रजि.)</string>
@@ -148,7 +60,8 @@ jobs:
           </resources>
           EOF
 
-          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+          # Layout
+          cat << 'EOF' > project/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
               android:layout_width="match_parent"
@@ -203,16 +116,14 @@ jobs:
                       <Button
                           android:id="@+id/btnLangHi"
                           android:layout_width="wrap_content"
-                          android:layout_height="38dp"
+                          android:layout_height="40dp"
                           android:text="हिंदी"
-                          android:textSize="12sp"
-                          android:layout_marginEnd="8dp" />
+                          android:layout_marginRight="8dp" />
                       <Button
                           android:id="@+id/btnLangEn"
                           android:layout_width="wrap_content"
-                          android:layout_height="38dp"
-                          android:text="English"
-                          android:textSize="12sp" />
+                          android:layout_height="40dp"
+                          android:text="English" />
                   </LinearLayout>
 
                   <EditText
@@ -271,9 +182,40 @@ jobs:
           </ScrollView>
           EOF
 
-          cat << 'EOF' > app/src/main/java/com/baalsewaksabha/app/MainActivity.java
+          # Manifest
+          cat << 'EOF' > project/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.baalsewaksabha.app"
+              android:versionCode="1"
+              android:versionName="1.0">
+              <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+              <application
+                  android:label="@string/app_name"
+                  android:icon="@drawable/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # Copy Logo
+          LOGO=$(find . -maxdepth 2 \( -iname "*1003244085*" -o -iname "*logo*" -o -iname "*.jpg" -o -iname "*.png" \) ! -path "./.git/*" -type f | head -n 1)
+          if [ -n "$LOGO" ]; then
+            cp -f "$LOGO" project/res/drawable/ic_launcher.png
+          fi
+
+          # Java Code
+          cat << 'EOF' > project/src/com/baalsewaksabha/app/MainActivity.java
           package com.baalsewaksabha.app;
 
+          import android.app.Activity;
           import android.content.Context;
           import android.content.Intent;
           import android.content.SharedPreferences;
@@ -286,12 +228,11 @@ jobs:
           import android.widget.Spinner;
           import android.widget.TextView;
           import android.widget.Toast;
-          import androidx.appcompat.app.AppCompatActivity;
           import java.text.SimpleDateFormat;
           import java.util.Date;
           import java.util.Locale;
 
-          public class MainActivity extends AppCompatActivity {
+          public class MainActivity extends Activity {
               private EditText etMemberName, etAmount;
               private Spinner spMonth;
               private TextView txtRecords;
@@ -303,14 +244,14 @@ jobs:
                   super.onCreate(savedInstanceState);
                   setContentView(R.layout.activity_main);
 
-                  etMemberName = findViewById(R.id.etMemberName);
-                  etAmount = findViewById(R.id.etAmount);
-                  spMonth = findViewById(R.id.spMonth);
-                  txtRecords = findViewById(R.id.txtRecords);
-                  Button btnSaveSewa = findViewById(R.id.btnSaveSewa);
-                  Button btnShareReceipt = findViewById(R.id.btnShareReceipt);
-                  Button btnLangHi = findViewById(R.id.btnLangHi);
-                  Button btnLangEn = findViewById(R.id.btnLangEn);
+                  etMemberName = (EditText) findViewById(R.id.etMemberName);
+                  etAmount = (EditText) findViewById(R.id.etAmount);
+                  spMonth = (Spinner) findViewById(R.id.spMonth);
+                  txtRecords = (TextView) findViewById(R.id.txtRecords);
+                  Button btnSaveSewa = (Button) findViewById(R.id.btnSaveSewa);
+                  Button btnShareReceipt = (Button) findViewById(R.id.btnShareReceipt);
+                  Button btnLangHi = (Button) findViewById(R.id.btnLangHi);
+                  Button btnLangEn = (Button) findViewById(R.id.btnLangEn);
 
                   prefs = getSharedPreferences("SewaPrefs", Context.MODE_PRIVATE);
 
@@ -320,7 +261,7 @@ jobs:
                       "July / जुलाई", "August / अगस्त", "September / सितम्बर",
                       "October / अक्टूबर", "November / नवम्बर", "December / दिसम्बर"
                   };
-                  ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, months);
+                  ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, months);
                   spMonth.setAdapter(adapter);
 
                   loadRecords();
@@ -337,7 +278,7 @@ jobs:
                   Locale.setDefault(locale);
                   Resources res = getResources();
                   Configuration config = res.getConfiguration();
-                  config.setLocale(locale);
+                  config.locale = locale;
                   res.updateConfiguration(config, res.getDisplayMetrics());
                   recreate();
               }
@@ -397,23 +338,38 @@ jobs:
           }
           EOF
 
-      - name: Force Apply Original Logo
-        run: |
-          LOGO=$(find . -maxdepth 2 \( -iname "*1003244085*" -o -iname "*logo*" -o -iname "*.jpg" -o -iname "*.png" \) ! -path "./.git/*" -type f | head -n 1)
-          if [ -n "$LOGO" ]; then
-            cp -f "$LOGO" app/src/main/res/drawable/ic_launcher.png
-          fi
+          # Compile Direct With Android SDK
+          ANDROID_JAR=$(find $ANDROID_HOME/platforms -name "android.jar" | sort -V | tail -n 1)
+          BUILD_TOOLS=$(find $ANDROID_HOME/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
 
-      - name: Install Gradle
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y gradle
+          echo "Using Android Jar: $ANDROID_JAR"
+          echo "Using Build Tools: $BUILD_TOOLS"
 
-      - name: Build APK
-        run: gradle assembleDebug --no-daemon
+          # 1. Compile Resources (AAPT2)
+          $BUILD_TOOLS/aapt2 compile --dir project/res -o project/bin/resources.zip
+          $BUILD_TOOLS/aapt2 link --proto-format -o project/bin/linked.apk -I "$ANDROID_JAR" --manifest project/AndroidManifest.xml --java project/src project/bin/resources.zip --auto-add-overlay
+
+          # Fallback to standard AAPT for simple packaging
+          $BUILD_TOOLS/aapt package -f -m -J project/src -M project/AndroidManifest.xml -S project/res -I "$ANDROID_JAR"
+
+          # 2. Compile Java
+          javac -d project/bin -cp "$ANDROID_JAR" $(find project/src -name "*.java")
+
+          # 3. DEX with D8
+          $BUILD_TOOLS/d8 --output project/bin/ $(find project/bin -name "*.class")
+
+          # 4. Package APK
+          $BUILD_TOOLS/aapt package -f -M project/AndroidManifest.xml -S project/res -I "$ANDROID_JAR" -F project/bin/unaligned.apk
+          cd project/bin
+          $BUILD_TOOLS/aapt add unaligned.apk classes.dex
+          cd ../..
+
+          # 5. Sign APK
+          keytool -genkeypair -v -keystore test.keystore -alias test -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=BaalSewakSabha, OU=App, O=Org, L=Amritsar, S=Punjab, C=IN"
+          $BUILD_TOOLS/apksigner sign --ks test.keystore --ks-pass pass:123456 --out Baal-Sewak-Sabha-Official.apk project/bin/unaligned.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Baal-Sewak-Sabha-Registered-Final-APK
-          path: "app/build/outputs/apk/debug/*.apk"
+          path: "*.apk"
