@@ -20,31 +20,41 @@ jobs:
             cp -rf baal-sewak-sabha-native-android/* .
           fi
 
-      - name: Force Apply Original Mata Durga Logo
+      - name: Set Original Durga Mata Logo
         run: |
-          # असली गोल लोगो फ़ाइल को ढूँढें
           LOGO=$(find . -maxdepth 2 \( -iname "*1003244085*" -o -iname "*logo*" -o -iname "*.jpg" -o -iname "*.png" \) ! -path "./.git/*" -type f | head -n 1)
-          echo "Original Logo found: $LOGO"
-          
           if [ -n "$LOGO" ]; then
-            # कार्टून और डिफ़ॉल्ट एंड्रॉयड रोबोट/वेक्टर आइकन पूरी तरह मिटाएँ
             rm -rf app/src/main/res/mipmap-anydpi*
             rm -rf app/src/main/res/drawable-anydpi*
             rm -f app/src/main/res/mipmap-*/ic_launcher*.xml
             rm -f app/src/main/res/mipmap-*/ic_launcher*.webp
-            
-            # ऐप के अंदर दिखने वाला बैनर/लोगो सेट करें
             mkdir -p app/src/main/res/drawable
             cp -f "$LOGO" app/src/main/res/drawable/app_logo.png || true
-            cp -f "$LOGO" app/src/main/res/drawable/logo.png || true
-
-            # हर स्क्रीन साइज़ पर असली गोल लोगो सेट करें
             for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi drawable-mdpi drawable-hdpi drawable-xhdpi drawable-xxhdpi drawable-xxxhdpi; do
               mkdir -p "app/src/main/res/$d"
               cp -f "$LOGO" "app/src/main/res/$d/ic_launcher.png" || true
               cp -f "$LOGO" "app/src/main/res/$d/ic_launcher_round.png" || true
             done
           fi
+
+      - name: Inject Monthly Sewa Register
+        run: |
+          PACKAGE_DIR=$(find app/src/main/java -type d | tail -n 1)
+          cat << 'EOF' > "$PACKAGE_DIR/SewaItem.java"
+          package com.example.baalsewaksabha;
+          public class SewaItem {
+              public String month;
+              public String name;
+              public String amount;
+              public String date;
+              public SewaItem(String month, String name, String amount, String date) {
+                  this.month = month;
+                  this.name = name;
+                  this.amount = amount;
+                  this.date = date;
+              }
+          }
+          EOF
 
       - name: Set Permissions
         run: chmod +x gradlew || true
@@ -55,5 +65,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Baal-Sewak-Sabha-Original-Logo-APK
+          name: Baal-Sewak-Sabha-Monthly-Sewa-APK
           path: "app/build/outputs/apk/debug/*.apk"
