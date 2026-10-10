@@ -13,30 +13,102 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Generate Complete Ultra Advance Project
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate Working Native Project
         run: |
+          mkdir -p gradle/wrapper
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          # Download real gradlew wrapper script
+          curl -s -o gradlew https://raw.githubusercontent.com/gradle/gradle/master/gradlew
+          chmod +x gradlew
+
+          cat << 'EOF' > settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "BaalSewakSabha"
+          include ':app'
+          EOF
+
+          cat << 'EOF' > build.gradle
+          plugins {
+              id 'com.android.application' version '8.2.2' apply false
+          }
+          EOF
+
           mkdir -p app/src/main/java/com/baalsewaksabha/app
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/values-hi
           mkdir -p app/src/main/res/drawable
 
+          cat << 'EOF' > app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.baalsewaksabha.app'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.baalsewaksabha.app"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 15
+                  versionName "15.0"
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
+          EOF
+
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.baalsewaksabha.app"
-              android:versionCode="14"
-              android:versionName="14.0">
-              <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application
+                  android:allowBackup="true"
+                  android:icon="@drawable/ic_launcher"
                   android:label="@string/app_name"
-                  android:icon="@drawable/ic_launcher">
+                  android:roundIcon="@drawable/ic_launcher"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
@@ -50,20 +122,19 @@ jobs:
           EOF
 
           cat << 'EOF' > app/src/main/res/values/strings.xml
-          <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">Baal Sewak Sabha</string>
               <string name="org_title">🚩 Baal Sewak Sabha (Regd.) 🚩</string>
               <string name="org_sub">Hindustani Basti, Amritsar (Punjab) - 143001</string>
               <string name="admin_info">Vyavasthapak: Atul (S/o Raj Kumar) | Helpline: 97804-75164</string>
-              <string name="search_hint">Search Member by Name or Mobile...</string>
+              <string name="search_hint">Search Member by Name...</string>
               <string name="member_name">Member Full Name</string>
               <string name="member_phone">Mobile Number</string>
               <string name="amount">Sewa Amount (₹)</string>
               <string name="select_date">Change Date (DD-MM-YYYY)</string>
-              <string name="btn_add_sewa">Save &amp; Generate Sewa Receipt</string>
+              <string name="btn_add_sewa">Save &amp; Generate Receipt</string>
               <string name="btn_share_receipt">Share Official Receipt (WhatsApp)</string>
-              <string name="btn_whatsapp_reminder">Send Monthly Sewa Reminder</string>
+              <string name="btn_whatsapp_reminder">Send WhatsApp Reminder</string>
               <string name="btn_show_chart">Show Member Full Chart</string>
               <string name="chart_title">Member Date-wise Sewa Record</string>
               <string name="records_title">All Members Sewa Register</string>
@@ -71,13 +142,12 @@ jobs:
           EOF
 
           cat << 'EOF' > app/src/main/res/values-hi/strings.xml
-          <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">बाल सेवक सभा</string>
               <string name="org_title">🚩 बाल सेवक सभा (रजि.) 🚩</string>
               <string name="org_sub">हिन्दुस्तानी बस्ती, अमृतसर (पंजाब) - 143001</string>
               <string name="admin_info">व्यवस्थापक: अतुल (सुपुत्र: श्री राज कुमार) | संपर्क: 97804-75164</string>
-              <string name="search_hint">सदस्य का नाम या मोबाइल नंबर खोजें...</string>
+              <string name="search_hint">सदस्य का नाम खोजें...</string>
               <string name="member_name">सदस्य का पूरा नाम</string>
               <string name="member_phone">मोबाइल नंबर</string>
               <string name="amount">सेवा राशि (₹)</string>
@@ -161,7 +231,6 @@ jobs:
                           android:textSize="12sp" />
                   </LinearLayout>
 
-                  <!-- Live Search Bar -->
                   <EditText
                       android:id="@+id/etSearch"
                       android:layout_width="match_parent"
@@ -248,7 +317,7 @@ jobs:
                       android:id="@+id/txtMemberChart"
                       android:layout_width="match_parent"
                       android:layout_height="wrap_content"
-                      android:text="Member ka naam likh kar 'Show Member Full Chart' par tap karein."
+                      android:text="सदस्य का नाम लिखकर 'Show Member Full Chart' दबाएं।"
                       android:padding="12dp"
                       android:background="#E8F5E9"
                       android:textColor="#1B5E20"
@@ -268,7 +337,7 @@ jobs:
                       android:id="@+id/txtTotal"
                       android:layout_width="match_parent"
                       android:layout_height="wrap_content"
-                      android:text="Total Sewa Collection: ₹0"
+                      android:text="कुल सेवा संग्रह: ₹0"
                       android:textStyle="bold"
                       android:textColor="#1B5E20"
                       android:layout_marginTop="4dp" />
@@ -277,7 +346,7 @@ jobs:
                       android:id="@+id/txtRecords"
                       android:layout_width="match_parent"
                       android:layout_height="wrap_content"
-                      android:text="Koi record uplabdh nahi hai."
+                      android:text="अभी कोई रिकॉर्ड नहीं है।"
                       android:padding="12dp"
                       android:background="#EFEBE9"
                       android:layout_marginTop="8dp" />
@@ -288,14 +357,12 @@ jobs:
           cat << 'EOF' > app/src/main/java/com/baalsewaksabha/app/MainActivity.java
           package com.baalsewaksabha.app;
 
-          import android.app.Activity;
           import android.app.DatePickerDialog;
           import android.content.Context;
           import android.content.Intent;
           import android.content.SharedPreferences;
           import android.content.res.Configuration;
           import android.content.res.Resources;
-          import android.net.Uri;
           import android.os.Bundle;
           import android.text.Editable;
           import android.text.TextWatcher;
@@ -306,12 +373,13 @@ jobs:
           import android.widget.Spinner;
           import android.widget.TextView;
           import android.widget.Toast;
+          import androidx.appcompat.app.AppCompatActivity;
           import java.text.SimpleDateFormat;
           import java.util.Calendar;
           import java.util.Date;
           import java.util.Locale;
 
-          public class MainActivity extends Activity {
+          public class MainActivity extends AppCompatActivity {
               private EditText etMemberName, etMemberPhone, etAmount, etSearch;
               private Spinner spMonth;
               private TextView txtRecords, txtTotal, txtMemberChart;
@@ -325,27 +393,27 @@ jobs:
                   super.onCreate(savedInstanceState);
                   setContentView(R.layout.activity_main);
 
-                  etSearch = (EditText) findViewById(R.id.etSearch);
-                  etMemberName = (EditText) findViewById(R.id.etMemberName);
-                  etMemberPhone = (EditText) findViewById(R.id.etMemberPhone);
-                  etAmount = (EditText) findViewById(R.id.etAmount);
-                  spMonth = (Spinner) findViewById(R.id.spMonth);
-                  txtRecords = (TextView) findViewById(R.id.txtRecords);
-                  txtTotal = (TextView) findViewById(R.id.txtTotal);
-                  txtMemberChart = (TextView) findViewById(R.id.txtMemberChart);
-                  btnPickDate = (Button) findViewById(R.id.btnPickDate);
+                  etSearch = findViewById(R.id.etSearch);
+                  etMemberName = findViewById(R.id.etMemberName);
+                  etMemberPhone = findViewById(R.id.etMemberPhone);
+                  etAmount = findViewById(R.id.etAmount);
+                  spMonth = findViewById(R.id.spMonth);
+                  txtRecords = findViewById(R.id.txtRecords);
+                  txtTotal = findViewById(R.id.txtTotal);
+                  txtMemberChart = findViewById(R.id.txtMemberChart);
+                  btnPickDate = findViewById(R.id.btnPickDate);
 
-                  Button btnSaveSewa = (Button) findViewById(R.id.btnSaveSewa);
-                  Button btnShareReceipt = (Button) findViewById(R.id.btnShareReceipt);
-                  Button btnWhatsappReminder = (Button) findViewById(R.id.btnWhatsappReminder);
-                  Button btnShowChart = (Button) findViewById(R.id.btnShowChart);
-                  Button btnLangHi = (Button) findViewById(R.id.btnLangHi);
-                  Button btnLangEn = (Button) findViewById(R.id.btnLangEn);
+                  Button btnSaveSewa = findViewById(R.id.btnSaveSewa);
+                  Button btnShareReceipt = findViewById(R.id.btnShareReceipt);
+                  Button btnWhatsappReminder = findViewById(R.id.btnWhatsappReminder);
+                  Button btnShowChart = findViewById(R.id.btnShowChart);
+                  Button btnLangHi = findViewById(R.id.btnLangHi);
+                  Button btnLangEn = findViewById(R.id.btnLangEn);
 
-                  prefs = getSharedPreferences("SewaUltraDB", Context.MODE_PRIVATE);
+                  prefs = getSharedPreferences("SewaSabhaDBFinal", Context.MODE_PRIVATE);
 
                   selectedDateStr = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(new Date());
-                  btnPickDate.setText("Date: " + selectedDateStr);
+                  btnPickDate.setText("तारीख: " + selectedDateStr);
 
                   String[] months = {
                       "January / जनवरी", "February / फ़रवरी", "March / मार्च",
@@ -353,7 +421,7 @@ jobs:
                       "July / जुलाई", "August / अगस्त", "September / सितम्बर",
                       "October / अक्टूबर", "November / नवम्बर", "December / दिसम्बर"
                   };
-                  ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, months);
+                  ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, months);
                   spMonth.setAdapter(adapter);
 
                   loadRecords("");
@@ -387,7 +455,7 @@ jobs:
 
                   DatePickerDialog dp = new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
                       selectedDateStr = String.format(Locale.getDefault(), "%02d-%02d-%04d", dayOfMonth, month + 1, year);
-                      btnPickDate.setText("Date: " + selectedDateStr);
+                      btnPickDate.setText("तारीख: " + selectedDateStr);
                   }, y, m, d);
                   dp.show();
               }
@@ -397,7 +465,7 @@ jobs:
                   Locale.setDefault(locale);
                   Resources res = getResources();
                   Configuration config = res.getConfiguration();
-                  config.locale = locale;
+                  config.setLocale(locale);
                   res.updateConfiguration(config, res.getDisplayMetrics());
                   recreate();
               }
@@ -409,7 +477,7 @@ jobs:
                   String month = spMonth.getSelectedItem().toString();
 
                   if (name.isEmpty() || amtStr.isEmpty()) {
-                      Toast.makeText(this, "Member ka naam aur sewa amount bharein!", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, "सदस्य का नाम और सेवा राशि भरें!", Toast.LENGTH_SHORT).show();
                       return;
                   }
 
@@ -435,31 +503,32 @@ jobs:
                           .putInt("TOTAL_" + memberKey, memberTotal)
                           .apply();
 
-                  lastReceiptText = "🚩 BAAL SEWAK SABHA (REGD.) 🚩\n" +
-                          "Hindustani Basti, Amritsar (Punjab) - 143001\n" +
+                  lastReceiptText = "🚩 बाल सेवक सभा (रजि.) 🚩\n" +
+                          "हिन्दुस्तानी बस्ती, अमृतसर (पंजाब) - 143001\n" +
                           "----------------------------------------\n" +
-                          "📜 OFFICIAL DIGITAL SEWA RECEIPT 📜\n" +
+                          "📜 आधिकारिक डिजिटल सेवा रसीद 📜\n" +
                           "----------------------------------------\n" +
-                          "Member Name : " + name + "\n" +
-                          "Mobile      : " + (phone.isEmpty() ? "N/A" : phone) + "\n" +
-                          "Sewa Month  : " + month + "\n" +
-                          "Sewa Amount : ₹" + amount + " /- (Received)\n" +
-                          "Sewa Date   : " + selectedDateStr + "\n" +
+                          "सदस्य का नाम : " + name + "\n" +
+                          "मोबाइल नंबर   : " + (phone.isEmpty() ? "N/A" : phone) + "\n" +
+                          "माह / सेवा     : " + month + "\n" +
+                          "सेवा राशि      : ₹" + amount + " /- (स्वीकृत)\n" +
+                          "सेवा तारीख     : " + selectedDateStr + "\n" +
                           "----------------------------------------\n" +
-                          "Vyavasthapak: Atul (S/o Raj Kumar)\n" +
-                          "Helpline    : +91 97804-75164\n" +
-                          "॥ JAI MATA DI ॥";
+                          "व्यवस्थापक    : अतुल (सुपुत्र: श्री राज कुमार)\n" +
+                          "हेल्पलाइन      : +91 97804-75164\n" +
+                          "----------------------------------------\n" +
+                          "॥ जय माता दी ॥";
 
                   loadRecords("");
                   showMemberChart();
                   etAmount.setText("");
-                  Toast.makeText(this, "Sewa register ho gayi!", Toast.LENGTH_SHORT).show();
+                  Toast.makeText(this, "सेवा सफलता से दर्ज हो गई!", Toast.LENGTH_SHORT).show();
               }
 
               private void showMemberChart() {
                   String name = etMemberName.getText().toString().trim();
                   if (name.isEmpty()) {
-                      Toast.makeText(this, "Chart dekhne ke liye naam likhein!", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, "चार्ट देखने के लिए सदस्य का नाम लिखें!", Toast.LENGTH_SHORT).show();
                       return;
                   }
 
@@ -468,18 +537,18 @@ jobs:
                   int total = prefs.getInt("TOTAL_" + memberKey, 0);
 
                   if (history.isEmpty()) {
-                      txtMemberChart.setText("Member: " + name + "\nKoi chart record nahi mila.");
+                      txtMemberChart.setText("सदस्य: " + name + "\nकोई चार्ट रिकॉर्ड नहीं मिला।");
                   } else {
-                      txtMemberChart.setText("🚩 Member Sewa Chart: " + name.toUpperCase() + "\nTotal Sewa: ₹" + total + "\n-----------------------------------\n" + history);
+                      txtMemberChart.setText("🚩 सदस्य सेवा चार्ट: " + name.toUpperCase() + "\nकुल सेवा: ₹" + total + "\n-----------------------------------\n" + history);
                   }
               }
 
               private void loadRecords(String query) {
-                  String rawRecords = prefs.getString("records", "Koi record uplabdh nahi hai.");
+                  String rawRecords = prefs.getString("records", "अभी कोई रिकॉर्ड मौजूद नहीं है।");
                   int total = prefs.getInt("total", 0);
-                  txtTotal.setText("Total Sewa Collection: ₹" + total);
+                  txtTotal.setText("कुल सेवा संग्रह: ₹" + total);
 
-                  if (query.isEmpty() || rawRecords.equals("Koi record uplabdh nahi hai.")) {
+                  if (query.isEmpty() || rawRecords.equals("अभी कोई रिकॉर्ड मौजूद नहीं है।")) {
                       txtRecords.setText(rawRecords);
                       return;
                   }
@@ -493,7 +562,7 @@ jobs:
                   }
 
                   if (filtered.length() == 0) {
-                      txtRecords.setText("'" + query + "' ke liye koi record nahi mila.");
+                      txtRecords.setText("'" + query + "' के लिए कोई रिकॉर्ड नहीं मिला।");
                   } else {
                       txtRecords.setText(filtered.toString());
                   }
@@ -501,64 +570,50 @@ jobs:
 
               private void shareReceipt() {
                   if (lastReceiptText.isEmpty()) {
-                      Toast.makeText(this, "Pehle kisi member ki sewa save karein!", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, "पहले सदस्य की सेवा दर्ज करें!", Toast.LENGTH_SHORT).show();
                       return;
                   }
                   Intent intent = new Intent(Intent.ACTION_SEND);
                   intent.setType("text/plain");
-                  intent.putExtra(Intent.EXTRA_SUBJECT, "Baal Sewak Sabha Digital Receipt");
+                  intent.putExtra(Intent.EXTRA_SUBJECT, "बाल सेवक सभा - डिजिटल रसीद");
                   intent.putExtra(Intent.EXTRA_TEXT, lastReceiptText);
-                  startActivity(Intent.createChooser(intent, "Share Receipt (WhatsApp)"));
+                  startActivity(Intent.createChooser(intent, "रसीद शेयर करें (WhatsApp)"));
               }
 
               private void sendReminder() {
                   String name = etMemberName.getText().toString().trim();
                   String month = spMonth.getSelectedItem().toString();
 
-                  String reminderText = "🚩 JAI MATA DI 🚩\n" +
-                          "Baal Sewak Sabha (Regd.), Amritsar\n\n" +
-                          "Respected Member " + (name.isEmpty() ? "" : name) + ",\n" +
-                          "Yeh " + month + " ki sabha sewa ka hardik smaran (reminder) hai.\n" +
-                          "Kripya apni monthly sewa darj karwake sabha ke dharamik karyon me sahyog karein.\n\n" +
-                          "Vyavasthapak: Atul (S/o Raj Kumar)\n" +
-                          "Helpline: 97804-75164";
+                  String reminderText = "🚩 जय माता दी 🚩\n" +
+                          "बाल सेवक सभा (रजि.), अमृतसर\n\n" +
+                          "आदरणीय सदस्य " + (name.isEmpty() ? "" : name) + " जी,\n" +
+                          "यह " + month + " की सभा सेवा का हार्दिक स्मरण (Reminder) है।\n" +
+                          "कृपया अपनी मासिक सेवा दर्ज करवाकर धर्म कार्य में सहयोग करें।\n\n" +
+                          "व्यवस्थापक: अतुल (सुपुत्र: श्री राज कुमार)\n" +
+                          "हेल्पलाइन: 97804-75164";
 
                   Intent intent = new Intent(Intent.ACTION_SEND);
                   intent.setType("text/plain");
                   intent.putExtra(Intent.EXTRA_TEXT, reminderText);
-                  startActivity(Intent.createChooser(intent, "Send Monthly Reminder"));
+                  startActivity(Intent.createChooser(intent, "मासिक स्मरण भेजें"));
               }
           }
           EOF
 
-      - name: Attach Org Logo
+      - name: Force Apply Original Logo
         run: |
           LOGO=$(find . -maxdepth 2 \( -iname "*1003244085*" -o -iname "*logo*" -o -iname "*.jpg" -o -iname "*.png" \) ! -path "./.git/*" -type f | head -n 1)
           if [ -n "$LOGO" ]; then
             cp -f "$LOGO" app/src/main/res/drawable/ic_launcher.png
           fi
 
-      - name: Build APK Direct Engine
+      - name: Build APK With Official Gradle
         run: |
-          ANDROID_JAR=$(find $ANDROID_HOME/platforms -name "android.jar" | sort -V | tail -n 1)
-          BUILD_TOOLS=$(find $ANDROID_HOME/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
-
-          mkdir -p build_output/gen build_output/obj
-
-          $BUILD_TOOLS/aapt package -f -m -J build_output/gen -M app/src/main/AndroidManifest.xml -S app/src/main/res -I "$ANDROID_JAR"
-          javac -source 1.8 -target 1.8 -d build_output/obj -cp "$ANDROID_JAR" $(find app/src/main/java build_output/gen -name "*.java")
-          $BUILD_TOOLS/d8 --output build_output/ $(find build_output/obj -name "*.class")
-
-          $BUILD_TOOLS/aapt package -f -M app/src/main/AndroidManifest.xml -S app/src/main/res -I "$ANDROID_JAR" -F build_output/unaligned.apk
-          cd build_output
-          $BUILD_TOOLS/aapt add unaligned.apk classes.dex
-          cd ..
-
-          keytool -genkeypair -v -keystore test.keystore -alias test -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=BaalSewakSabha, OU=App, O=Org, L=Amritsar, S=Punjab, C=IN"
-          $BUILD_TOOLS/apksigner sign --ks test.keystore --ks-pass pass:123456 --out Baal-Sewak-Sabha-Ultra.apk build_output/unaligned.apk
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Baal-Sewak-Sabha-Ultra-Final-APK
-          path: "Baal-Sewak-Sabha-Ultra.apk"
+          path: "app/build/outputs/apk/debug/*.apk"
