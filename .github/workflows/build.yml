@@ -298,7 +298,7 @@ jobs:
             cp -f "$LOGO" project/res/drawable/ic_launcher.png
           fi
 
-          # 7. MainActivity Java
+          # 7. MainActivity Java (Fixed: addTextChangedListener)
           cat << 'EOF' > project/src/com/baalsewaksabha/app/MainActivity.java
           package com.baalsewaksabha.app;
 
@@ -380,7 +380,7 @@ jobs:
                   btnLangHi.setOnClickListener(v -> setAppLocale("hi"));
                   btnLangEn.setOnClickListener(v -> setAppLocale("en"));
 
-                  etSearch.addTextWatcher(new TextWatcher() {
+                  etSearch.addTextChangedListener(new TextWatcher() {
                       @Override
                       public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                       @Override
@@ -545,33 +545,29 @@ jobs:
           }
           EOF
 
-          # 8. Toolchain Path Discovery
+          # 8. Toolchain Discovery
           SDK_DIR="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           ANDROID_JAR=$(find "$SDK_DIR/platforms" -name "android.jar" | sort -V | tail -n 1)
-          # Use 33.0.2 which contains rock-solid classic aapt
-          BT_DIR=$(find "$SDK_DIR/build-tools" -mindepth 1 -maxdepth 1 -type d | grep "33" | sort -V | tail -n 1)
-          if [ -z "$BT_DIR" ]; then
-            BT_DIR=$(find "$SDK_DIR/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
-          fi
+          BT_DIR=$(find "$SDK_DIR/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
 
           echo "Using Android Jar: $ANDROID_JAR"
           echo "Using Build Tools: $BT_DIR"
 
-          # 9. Step A: Classic AAPT creates R.java & packages base resources
+          # 9. AAPT Resources Compilation
           "$BT_DIR/aapt" package -f -m -J project/src -M project/AndroidManifest.xml -S project/res -I "$ANDROID_JAR" -F project/bin/unaligned.apk
 
-          # Step B: Java Compilation
+          # 10. Java Compilation
           javac -source 1.8 -target 1.8 -d project/bin -cp "$ANDROID_JAR" $(find project/src -name "*.java")
 
-          # Step C: DEX with D8
+          # 11. DEX Compilation with D8
           "$BT_DIR/d8" --output project/bin/ $(find project/bin -name "*.class")
 
-          # Step D: Add classes.dex into APK
+          # 12. Add classes.dex into APK
           cd project/bin
           zip -u unaligned.apk classes.dex
           cd ../..
 
-          # Step E: Zipalign & Sign APK
+          # 13. Zipalign & Sign APK
           "$BT_DIR/zipalign" -f -p 4 project/bin/unaligned.apk project/bin/aligned.apk
 
           keytool -genkeypair -v -keystore test.keystore -alias test -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=BaalSewakSabha, OU=App, O=Org, L=Amritsar, S=Punjab, C=IN"
