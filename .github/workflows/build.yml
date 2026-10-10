@@ -23,7 +23,7 @@ jobs:
         run: |
           set -e
 
-          # 1. Directory Structure
+          # 1. Folders Structure
           mkdir -p project/src/com/baalsewaksabha/app
           mkdir -p project/res/layout
           mkdir -p project/res/values
@@ -550,13 +550,11 @@ jobs:
           ANDROID_JAR=$(find "$SDK_DIR/platforms" -name "android.jar" | sort -V | tail -n 1)
           BT_DIR=$(find "$SDK_DIR/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
 
-          echo "Selected Android JAR: $ANDROID_JAR"
-          echo "Selected Build Tools: $BT_DIR"
+          echo "Using Android Jar: $ANDROID_JAR"
+          echo "Using Build Tools: $BT_DIR"
 
-          # 9. Step A: AAPT2 Compile Flat Files
-          find project/res -type f | while read -r res_file; do
-            "$BT_DIR/aapt2" compile "$res_file" -o project/bin/compiled_res/
-          done
+          # 9. Step A: AAPT2 Compile Entire Resource Tree
+          "$BT_DIR/aapt2" compile --dir project/res -o project/bin/resources.zip
 
           # Step B: AAPT2 Link (Generates R.java and initial APK shell)
           "$BT_DIR/aapt2" link \
@@ -564,22 +562,22 @@ jobs:
             --manifest project/AndroidManifest.xml \
             --java project/src \
             -o project/bin/linked.apk \
-            project/bin/compiled_res/*.flat \
+            project/bin/resources.zip \
             --auto-add-overlay
 
-          # Step C: Java Compilation (Compile R.java and MainActivity.java)
+          # Step C: Java Compilation
           javac -source 1.8 -target 1.8 -d project/bin -cp "$ANDROID_JAR" $(find project/src -name "*.java")
 
           # Step D: DEX with D8
           "$BT_DIR/d8" --output project/bin/ $(find project/bin -name "*.class")
 
-          # Step E: Add classes.dex to APK shell
+          # Step E: Add classes.dex into APK using standard zip utility
           cd project/bin
-          "$BT_DIR/aapt" add linked.apk classes.dex
+          zip -u linked.apk classes.dex
           cd ../..
 
           # Step F: Zipalign & Sign APK
-          "$BT_DIR/zipalign" -f 4 project/bin/linked.apk project/bin/aligned.apk
+          "$BT_DIR/zipalign" -f -p 4 project/bin/linked.apk project/bin/aligned.apk
 
           keytool -genkeypair -v -keystore test.keystore -alias test -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=BaalSewakSabha, OU=App, O=Org, L=Amritsar, S=Punjab, C=IN"
           "$BT_DIR/apksigner" sign --ks test.keystore --ks-pass pass:123456 --out Baal-Sewak-Sabha-Ultra-Final.apk project/bin/aligned.apk
