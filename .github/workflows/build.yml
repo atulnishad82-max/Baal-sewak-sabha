@@ -13,14 +13,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Fast Direct Standalone APK Build
+      - name: Build Standalone APK Direct
         run: |
+          set -e
+
+          # 1. Directory Structure
           mkdir -p project/src/com/baalsewaksabha/app
           mkdir -p project/res/layout
           mkdir -p project/res/values
@@ -28,7 +31,7 @@ jobs:
           mkdir -p project/res/drawable
           mkdir -p project/bin
 
-          # 1. Strings English
+          # 2. Strings English
           cat << 'EOF' > project/res/values/strings.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -50,7 +53,7 @@ jobs:
           </resources>
           EOF
 
-          # 2. Strings Hindi
+          # 3. Strings Hindi
           cat << 'EOF' > project/res/values-hi/strings.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -72,7 +75,7 @@ jobs:
           </resources>
           EOF
 
-          # 3. Layout XML
+          # 4. Layout
           cat << 'EOF' > project/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -266,7 +269,7 @@ jobs:
           </ScrollView>
           EOF
 
-          # 4. AndroidManifest
+          # 5. AndroidManifest
           cat << 'EOF' > project/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -289,13 +292,13 @@ jobs:
           </manifest>
           EOF
 
-          # 5. Attach Logo
+          # 6. Apply Logo
           LOGO=$(find . -maxdepth 2 \( -iname "*1003244085*" -o -iname "*logo*" -o -iname "*.jpg" -o -iname "*.png" \) ! -path "./.git/*" -type f | head -n 1)
           if [ -n "$LOGO" ]; then
             cp -f "$LOGO" project/res/drawable/ic_launcher.png
           fi
 
-          # 6. MainActivity Java (Self-contained, Native Android Activity)
+          # 7. MainActivity Java
           cat << 'EOF' > project/src/com/baalsewaksabha/app/MainActivity.java
           package com.baalsewaksabha.app;
 
@@ -542,19 +545,29 @@ jobs:
           }
           EOF
 
-          # 7. Direct Compile with AAPT + javac + d8 + apksigner
-          ANDROID_JAR=$(find$ANDROID_HOME/platforms -name "android.jar" | sort -V | tail -n 1)
-          BUILD_TOOLS=$(find$ANDROID_HOME/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          # 8. Locate Toolpaths Automatically
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          ANDROID_JAR=$(find "$SDK_ROOT/platforms" -name "android.jar" | sort -V | tail -n 1)
+          BT_DIR=$(find "$SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
 
-          # Generate R.java
-          $BUILD_TOOLS/aapt package -f -m -J project/src -M project/AndroidManifest.xml -S project/res -I "$ANDROID_JAR"
+          echo "Using Android Jar: $ANDROID_JAR"
+          echo "Using Build-Tools Directory: $BT_DIR"
 
-          # Compile Java classes
+          # 9. Direct Compilation Pipeline
+          "$BT_DIR/aapt" package -f -m -J project/src -M project/AndroidManifest.xml -S project/res -I "$ANDROID_JAR"
           javac -source 1.8 -target 1.8 -d project/bin -cp "$ANDROID_JAR" $(find project/src -name "*.java")
-
-          # Compile DEX bytecode
-          $BUILD_TOOLS/d8 --output project/bin/ $(find project/bin -name "*.class")
-
-          # Package resources and classes into APK
-          $BUILD_TOOLS/aapt package -f -M project/AndroidManifest.xml -S project/res -I "$ANDROID_JAR" -F project/bin/unaligned.apk
+          "$BT_DIR/d8" --output project/bin/ $(find project/bin -name "*.class")
+          "$BT_DIR/aapt" package -f -M project/AndroidManifest.xml -S project/res -I "$ANDROID_JAR" -F project/bin/unaligned.apk
           cd project/bin
+          "$BT_DIR/aapt" add unaligned.apk classes.dex
+          cd ../..
+
+          # 10. Signing
+          keytool -genkeypair -v -keystore test.keystore -alias test -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=BaalSewakSabha, OU=App, O=Org, L=Amritsar, S=Punjab, C=IN"
+          "$BT_DIR/apksigner" sign --ks test.keystore --ks-pass pass:123456 --out Baal-Sewak-Sabha-Ultra-Official.apk project/bin/unaligned.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Baal-Sewak-Sabha-Ultra-Final-APK
+          path: "Baal-Sewak-Sabha-Ultra-Official.apk"
