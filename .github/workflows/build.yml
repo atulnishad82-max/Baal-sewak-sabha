@@ -31,15 +31,16 @@ jobs:
           mkdir -p project/res/xml
           mkdir -p project/bin
 
-          # File Provider XML
+          # 1. FileProvider XML Config
           cat << 'EOF' > project/res/xml/provider_paths.xml
           <?xml version="1.0" encoding="utf-8"?>
           <paths>
-              <cache-path name="shared_receipts" path="." />
+              <external-cache-path name="ext_cache" path="." />
+              <cache-path name="int_cache" path="." />
           </paths>
           EOF
 
-          # Strings English
+          # 2. Strings English
           cat << 'EOF' > project/res/values/strings.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -54,7 +55,7 @@ jobs:
               <string name="select_date">Change Date (DD-MM-YYYY)</string>
               <string name="btn_add_sewa">Save Sewa Entry</string>
               <string name="btn_add_expense">Save Sabha Expense</string>
-              <string name="btn_share_receipt">Share Colourful Photo Receipt</string>
+              <string name="btn_share_receipt">📸 Share Colourful Photo Receipt (WhatsApp)</string>
               <string name="btn_whatsapp_reminder">Send WhatsApp Reminder</string>
               <string name="btn_show_chart">Show Member Full Chart</string>
               <string name="btn_share_id">Share Member ID Card</string>
@@ -65,7 +66,7 @@ jobs:
           </resources>
           EOF
 
-          # Strings Hindi
+          # 3. Strings Hindi
           cat << 'EOF' > project/res/values-hi/strings.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -80,7 +81,7 @@ jobs:
               <string name="select_date">तारीख बदलें (DD-MM-YYYY)</string>
               <string name="btn_add_sewa">सेवा दर्ज करें व रसीद बनाएं</string>
               <string name="btn_add_expense">सभा का खर्च दर्ज करें</string>
-              <string name="btn_share_receipt">रंग-बिरंगी फोटो रसीद शेयर करें (WhatsApp)</string>
+              <string name="btn_share_receipt">📸 रंग-बिरंगी फोटो रसीद शेयर करें (WhatsApp)</string>
               <string name="btn_whatsapp_reminder">व्हाट्सएप सेवा स्मरण भेजें</string>
               <string name="btn_show_chart">सदस्य का फुल सेवा चार्ट देखें</string>
               <string name="btn_share_id">डिजिटल सदस्यता पहचान पत्र भेजें</string>
@@ -91,7 +92,7 @@ jobs:
           </resources>
           EOF
 
-          # Layout
+          # 4. Layout
           cat << 'EOF' > project/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -253,14 +254,14 @@ jobs:
                           android:layout_marginStart="4dp" />
                   </LinearLayout>
 
+                  <!-- Colourful Graphic Receipt Button -->
                   <Button
                       android:id="@+id/btnShareReceipt"
                       android:layout_width="match_parent"
-                      android:layout_height="wrap_content"
+                      android:layout_height="48dp"
                       android:text="@string/btn_share_receipt"
-                      android:background="#D32F2F"
-                      android:textColor="#FFFFFF"
-                      android:layout_marginTop="6dp" />
+                      android:textStyle="bold"
+                      android:layout_marginTop="8dp" />
 
                   <Button
                       android:id="@+id/btnWhatsappReminder"
@@ -331,7 +332,7 @@ jobs:
           </ScrollView>
           EOF
 
-          # Manifest
+          # 5. Manifest with Custom Shared Provider
           cat << 'EOF' > project/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -339,9 +340,19 @@ jobs:
               android:versionCode="1"
               android:versionName="1.0">
               <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+              <uses-permission android:name="android.permission.INTERNET" />
               <application
                   android:label="@string/app_name"
                   android:icon="@drawable/ic_launcher">
+                  <provider
+                      android:name=".SabhaFileProvider"
+                      android:authorities="com.baalsewaksabha.app.provider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.FILE_PROVIDER_PATHS"
+                          android:resource="@xml/provider_paths" />
+                  </provider>
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
@@ -354,13 +365,61 @@ jobs:
           </manifest>
           EOF
 
-          # Logo Attach
+          # 6. Standalone Provider Class
+          cat << 'EOF' > project/src/com/baalsewaksabha/app/SabhaFileProvider.java
+          package com.baalsewaksabha.app;
+
+          import android.content.ContentProvider;
+          import android.content.ContentValues;
+          import android.database.Cursor;
+          import android.database.MatrixCursor;
+          import android.net.Uri;
+          import android.os.ParcelFileDescriptor;
+          import android.provider.OpenableColumns;
+          import java.io.File;
+          import java.io.FileNotFoundException;
+
+          public class SabhaFileProvider extends ContentProvider {
+              @Override
+              public boolean onCreate() {
+                  return true;
+              }
+
+              @Override
+              public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
+                  File file = new File(getContext().getCacheDir(), uri.getLastPathSegment());
+                  if (file.exists()) {
+                      return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+                  }
+                  throw new FileNotFoundException("File not found: " + uri.toString());
+              }
+
+              @Override
+              public String getType(Uri uri) {
+                  return "image/png";
+              }
+
+              @Override
+              public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
+                  File file = new File(getContext().getCacheDir(), uri.getLastPathSegment());
+                  MatrixCursor cursor = new MatrixCursor(new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE});
+                  cursor.addRow(new Object[]{file.getName(), file.length()});
+                  return cursor;
+              }
+
+              @Override public Uri insert(Uri uri, ContentValues values) { return null; }
+              @Override public int delete(Uri uri, String selection, String[] selectionArgs) { return 0; }
+              @Override public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) { return 0; }
+          }
+          EOF
+
+          # 7. Apply Logo
           LOGO=$(find . -maxdepth 2 \( -iname "*1003244085*" -o -iname "*logo*" -o -iname "*.jpg" -o -iname "*.png" \) ! -path "./.git/*" -type f | head -n 1)
           if [ -n "$LOGO" ]; then
             cp -f "$LOGO" project/res/drawable/ic_launcher.png
           fi
 
-          # MainActivity Java with Colourful Graphics Generator
+          # 8. MainActivity Java (Generates HD Colourful Canvas PNG and Shares via Intent)
           cat << 'EOF' > project/src/com/baalsewaksabha/app/MainActivity.java
           package com.baalsewaksabha.app;
 
@@ -404,7 +463,7 @@ jobs:
               private Button btnPickDate;
               private SharedPreferences prefs;
               private File lastReceiptFile = null;
-              private String lastReceiptText = "";
+              private String lastReceiptCaption = "";
               private String lastIdCardText = "";
               private String selectedDateStr = "";
 
@@ -435,14 +494,14 @@ jobs:
                   Button btnLangHi = (Button) findViewById(R.id.btnLangHi);
                   Button btnLangEn = (Button) findViewById(R.id.btnLangEn);
 
-                  prefs = getSharedPreferences("SewaSabhaAccountsV7", Context.MODE_PRIVATE);
+                  prefs = getSharedPreferences("SewaSabhaAccountsV8", Context.MODE_PRIVATE);
 
                   selectedDateStr = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(new Date());
                   btnPickDate.setText("तारीख: " + selectedDateStr);
 
                   String[] months = {
                       "January / जनवरी", "February / फ़रवरी", "March / मार्च",
-                      "April / अप्रैल", "May / मई", "June / जून",
+                      "April / अप्रैल", "May / जून", "June / जून",
                       "July / जुलाई", "August / अगस्त", "September / सितम्बर",
                       "October / अक्टूबर", "November / नवम्बर", "December / दिसम्बर"
                   };
@@ -460,7 +519,7 @@ jobs:
                   btnPickDate.setOnClickListener(v -> showDatePicker());
                   btnSaveSewa.setOnClickListener(v -> saveRecord(false));
                   btnSaveExpense.setOnClickListener(v -> saveRecord(true));
-                  btnShareReceipt.setOnClickListener(v -> shareColourfulReceipt());
+                  btnShareReceipt.setOnClickListener(v -> shareColourfulPhotoReceipt());
                   btnWhatsappReminder.setOnClickListener(v -> sendReminder());
                   btnShareId.setOnClickListener(v -> shareIdCard());
                   btnShowChart.setOnClickListener(v -> showMemberChart());
@@ -519,7 +578,7 @@ jobs:
                   String mode = spPaymentMode.getSelectedItem().toString();
 
                   if (name.isEmpty() || amtStr.isEmpty()) {
-                      Toast.makeText(this, "कृपया नाम/विवरण और राशि भरें!", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, "कृपया नाम और राशि भरें!", Toast.LENGTH_SHORT).show();
                       return;
                   }
 
@@ -553,25 +612,12 @@ jobs:
                               .apply();
 
                       String recNo = "BSS-2026-" + entryCount;
-                      lastReceiptText = "🚩 बाल सेवक सभा (रजि.) 🚩\n" +
-                              "हिन्दुस्तानी बस्ती, अमृतसर (पंजाब) - 143001\n" +
-                              "----------------------------------------\n" +
-                              "📜 आधिकारिक डिजिटल सेवा रसीद 📜\n" +
-                              "----------------------------------------\n" +
-                              "रसीद संख्या    : " + recNo + "\n" +
-                              "सदस्य का नाम   : " + name + "\n" +
-                              "मोबाइल नंबर     : " + (phone.isEmpty() ? "N/A" : phone) + "\n" +
-                              "माह / सेवा       : " + month + "\n" +
-                              "भुगतान माध्यम   : " + mode + "\n" +
-                              "सेवा राशि        : ₹" + amount + " /- (स्वीकृत)\n" +
-                              "सेवा तारीख       : " + selectedDateStr + "\n" +
-                              "----------------------------------------\n" +
-                              "व्यवस्थापक      : अतुल (सुपुत्र: श्री राज कुमार)\n" +
-                              "हेल्पलाइन        : +91 97804-75164\n" +
-                              "----------------------------------------\n" +
-                              "॥ जय माता दी ॥";
+                      lastReceiptCaption = "🚩 बाल सेवक सभा (रजि.) - आधिकारिक डिजिटल सेवा रसीद 🚩\n" +
+                              "रसीद क्र.: " + recNo + " | सदस्य: " + name + " | राशि: ₹" + amount + " (" + mode + ")\n" +
+                              "व्यवस्थापक: अतुल (सुपुत्र: राज कुमार) - 97804-75164\n॥ जय माता दी ॥";
 
-                      generateColourfulReceipt(recNo, name, (phone.isEmpty() ? "N/A" : phone), month, mode, String.valueOf(amount), selectedDateStr);
+                      // Generate Colourful Bitmap & Save to PNG file
+                      generateColourfulReceiptBitmap(recNo, name, (phone.isEmpty() ? "N/A" : phone), month, mode, String.valueOf(amount), selectedDateStr);
 
                       int idHash = name.hashCode() > 0 ? name.hashCode() % 10000 : (-name.hashCode()) % 10000;
                       lastIdCardText = "🚩 बाल सेवक सभा (रजि.) 🚩\n" +
@@ -588,7 +634,7 @@ jobs:
                               "----------------------------------------\n" +
                               "॥ जय माता दी ॥";
 
-                      Toast.makeText(this, "रंग-बिरंगी रसीद तैयार हो गई!", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, "रंग-बिरंगी रसीद फोटो तैयार हो गई!", Toast.LENGTH_SHORT).show();
                   }
 
                   prefs.edit()
@@ -603,179 +649,180 @@ jobs:
                   etAmount.setText("");
               }
 
-              private void generateColourfulReceipt(String recNo, String name, String phone, String month, String mode, String amount, String date) {
+              private void generateColourfulReceiptBitmap(String recNo, String name, String phone, String month, String mode, String amount, String date) {
                   try {
-                      int width = 800;
-                      int height = 1120;
+                      int width = 850;
+                      int height = 1200;
                       Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
                       Canvas canvas = new Canvas(bitmap);
 
-                      // Cream Gradient Background
+                      // 1. Rich Background
                       Paint bgPaint = new Paint();
-                      bgPaint.setShader(new LinearGradient(0, 0, 0, height, Color.parseColor("#FFFDF0"), Color.parseColor("#FFF3E0"), Shader.TileMode.CLAMP));
+                      bgPaint.setShader(new LinearGradient(0, 0, 0, height, Color.parseColor("#FFFDF5"), Color.parseColor("#FFF0DE"), Shader.TileMode.CLAMP));
                       canvas.drawRect(0, 0, width, height, bgPaint);
 
-                      // Golden Outer Border
+                      // 2. Double Ornamental Borders (Gold & Royal Crimson)
                       Paint goldPaint = new Paint();
                       goldPaint.setColor(Color.parseColor("#D4AF37"));
                       goldPaint.setStyle(Paint.Style.STROKE);
-                      goldPaint.setStrokeWidth(12);
-                      canvas.drawRoundRect(new RectF(20, 20, width - 20, height - 20), 30, 30, goldPaint);
+                      goldPaint.setStrokeWidth(14);
+                      canvas.drawRoundRect(new RectF(18, 18, width - 18, height - 18), 32, 32, goldPaint);
 
-                      // Crimson Inner Border
                       Paint redBorder = new Paint();
                       redBorder.setColor(Color.parseColor("#B71C1C"));
                       redBorder.setStyle(Paint.Style.STROKE);
-                      redBorder.setStrokeWidth(4);
-                      canvas.drawRoundRect(new RectF(35, 35, width - 35, height - 35), 20, 20, redBorder);
+                      redBorder.setStrokeWidth(5);
+                      canvas.drawRoundRect(new RectF(34, 34, width - 34, height - 34), 22, 22, redBorder);
 
-                      // Top Red Banner
+                      // 3. Header Crimson Banner
                       Paint bannerPaint = new Paint();
                       bannerPaint.setColor(Color.parseColor("#B71C1C"));
                       bannerPaint.setStyle(Paint.Style.FILL);
-                      canvas.drawRoundRect(new RectF(50, 50, width - 50, 160), 16, 16, bannerPaint);
+                      canvas.drawRoundRect(new RectF(50, 50, width - 50, 175), 18, 18, bannerPaint);
 
-                      // Draw Logo
+                      // 4. Logo Draw in Center
                       Bitmap logoBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_launcher);
                       if (logoBitmap != null) {
-                          Bitmap scaledLogo = Bitmap.createScaledBitmap(logoBitmap, 120, 120, true);
-                          canvas.drawBitmap(scaledLogo, (width - 120) / 2, 175, null);
+                          Bitmap scaledLogo = Bitmap.createScaledBitmap(logoBitmap, 130, 130, true);
+                          canvas.drawBitmap(scaledLogo, (width - 130) / 2, 190, null);
                       }
 
-                      Paint paint = new Paint();
-                      paint.setAntiAlias(true);
+                      Paint textPaint = new Paint();
+                      textPaint.setAntiAlias(true);
 
-                      // Banner Text
-                      paint.setTextAlign(Paint.Align.CENTER);
-                      paint.setColor(Color.parseColor("#FFD700"));
-                      paint.setTextSize(34);
-                      paint.setFakeBoldText(true);
-                      canvas.drawText("🚩 बाल सेवक सभा (रजि.) 🚩", width / 2, 105, paint);
+                      // Banner Headings
+                      textPaint.setTextAlign(Paint.Align.CENTER);
+                      textPaint.setColor(Color.parseColor("#FFD700"));
+                      textPaint.setTextSize(36);
+                      textPaint.setFakeBoldText(true);
+                      canvas.drawText("🚩 बाल सेवक सभा (रजि.) 🚩", width / 2, 110, textPaint);
 
-                      paint.setColor(Color.WHITE);
-                      paint.setTextSize(18);
-                      paint.setFakeBoldText(false);
-                      canvas.drawText("हिन्दुस्तानी बस्ती, अमृतसर (पंजाब) - 143001", width / 2, 140, paint);
+                      textPaint.setColor(Color.WHITE);
+                      textPaint.setTextSize(20);
+                      textPaint.setFakeBoldText(false);
+                      canvas.drawText("हिन्दुस्तानी बस्ती, अमृतसर (पंजाब) - 143001", width / 2, 150, textPaint);
 
-                      // Badge Receipt Title
-                      paint.setColor(Color.parseColor("#1B5E20"));
-                      paint.setTextSize(26);
-                      paint.setFakeBoldText(true);
-                      canvas.drawText("★ आधिकारिक डिजिटल सेवा रसीद ★", width / 2, 335, paint);
+                      // Title Sub-card
+                      textPaint.setColor(Color.parseColor("#1B5E20"));
+                      textPaint.setTextSize(28);
+                      textPaint.setFakeBoldText(true);
+                      canvas.drawText("★ आधिकारिक डिजिटल सेवा रसीद ★", width / 2, 360, textPaint);
 
-                      paint.setColor(Color.parseColor("#555555"));
-                      paint.setTextSize(18);
-                      paint.setFakeBoldText(false);
-                      canvas.drawText("रसीद संख्या: " + recNo + "  |  तारीख: " + date, width / 2, 370, paint);
+                      textPaint.setColor(Color.parseColor("#666666"));
+                      textPaint.setTextSize(19);
+                      textPaint.setFakeBoldText(false);
+                      canvas.drawText("रसीद संख्या: " + recNo + "  |  तारीख: " + date, width / 2, 395, textPaint);
 
-                      // Card Box for Details
-                      Paint cardPaint = new Paint();
-                      cardPaint.setColor(Color.WHITE);
-                      cardPaint.setStyle(Paint.Style.FILL);
-                      canvas.drawRoundRect(new RectF(60, 400, width - 60, 780), 20, 20, cardPaint);
+                      // White Info Card Container
+                      Paint cardBg = new Paint();
+                      cardBg.setColor(Color.WHITE);
+                      cardBg.setStyle(Paint.Style.FILL);
+                      canvas.drawRoundRect(new RectF(60, 425, width - 60, 835), 24, 24, cardBg);
 
                       Paint cardBorder = new Paint();
-                      cardBorder.setColor(Color.parseColor("#E0E0E0"));
+                      cardBorder.setColor(Color.parseColor("#E6D7B8"));
                       cardBorder.setStyle(Paint.Style.STROKE);
-                      cardBorder.setStrokeWidth(2);
-                      canvas.drawRoundRect(new RectF(60, 400, width - 60, 780), 20, 20, cardBorder);
+                      cardBorder.setStrokeWidth(3);
+                      canvas.drawRoundRect(new RectF(60, 425, width - 60, 835), 24, 24, cardBorder);
 
-                      // Field details
-                      paint.setTextAlign(Paint.Align.LEFT);
+                      // Table rows
+                      textPaint.setTextAlign(Paint.Align.LEFT);
                       int startX = 90;
-                      int y = 460;
-                      int rowGap = 60;
+                      int y = 490;
+                      int rowGap = 65;
 
                       // Member Name
-                      paint.setColor(Color.parseColor("#555555"));
-                      paint.setTextSize(20);
-                      canvas.drawText("सदस्य का नाम :", startX, y, paint);
-                      paint.setColor(Color.parseColor("#B71C1C"));
-                      paint.setTextSize(24);
-                      paint.setFakeBoldText(true);
-                      canvas.drawText(name.toUpperCase(), startX + 170, y, paint);
+                      textPaint.setColor(Color.parseColor("#555555"));
+                      textPaint.setTextSize(22);
+                      canvas.drawText("सदस्य का नाम :", startX, y, textPaint);
+                      textPaint.setColor(Color.parseColor("#B71C1C"));
+                      textPaint.setTextSize(25);
+                      textPaint.setFakeBoldText(true);
+                      canvas.drawText(name.toUpperCase(), startX + 180, y, textPaint);
 
-                      // Phone
+                      // Mobile
                       y += rowGap;
-                      paint.setColor(Color.parseColor("#555555"));
-                      paint.setTextSize(20);
-                      paint.setFakeBoldText(false);
-                      canvas.drawText("मोबाइल नंबर   :", startX, y, paint);
-                      paint.setColor(Color.BLACK);
-                      paint.setTextSize(22);
-                      canvas.drawText(phone, startX + 170, y, paint);
+                      textPaint.setColor(Color.parseColor("#555555"));
+                      textPaint.setTextSize(22);
+                      textPaint.setFakeBoldText(false);
+                      canvas.drawText("मोबाइल नंबर   :", startX, y, textPaint);
+                      textPaint.setColor(Color.BLACK);
+                      textPaint.setTextSize(23);
+                      canvas.drawText(phone, startX + 180, y, textPaint);
 
-                      // Sewa Month
+                      // Month
                       y += rowGap;
-                      paint.setColor(Color.parseColor("#555555"));
-                      paint.setTextSize(20);
-                      canvas.drawText("माह / सेवा     :", startX, y, paint);
-                      paint.setColor(Color.parseColor("#0D47A1"));
-                      paint.setTextSize(22);
-                      canvas.drawText(month, startX + 170, y, paint);
+                      textPaint.setColor(Color.parseColor("#555555"));
+                      textPaint.setTextSize(22);
+                      canvas.drawText("माह / सेवा     :", startX, y, textPaint);
+                      textPaint.setColor(Color.parseColor("#0D47A1"));
+                      textPaint.setTextSize(23);
+                      textPaint.setFakeBoldText(true);
+                      canvas.drawText(month, startX + 180, y, textPaint);
 
-                      // Payment Mode
+                      // Mode
                       y += rowGap;
-                      paint.setColor(Color.parseColor("#555555"));
-                      paint.setTextSize(20);
-                      canvas.drawText("माध्यम         :", startX, y, paint);
-                      paint.setColor(Color.parseColor("#333333"));
-                      paint.setTextSize(22);
-                      canvas.drawText(mode, startX + 170, y, paint);
+                      textPaint.setColor(Color.parseColor("#555555"));
+                      textPaint.setTextSize(22);
+                      textPaint.setFakeBoldText(false);
+                      canvas.drawText("भुगतान माध्यम :", startX, y, textPaint);
+                      textPaint.setColor(Color.parseColor("#2E7D32"));
+                      textPaint.setTextSize(23);
+                      canvas.drawText(mode, startX + 180, y, textPaint);
 
-                      // Amount Highlight Box
+                      // Highlight Amount Box
                       y += rowGap;
-                      Paint amtBg = new Paint();
-                      amtBg.setColor(Color.parseColor("#E8F5E9"));
-                      canvas.drawRoundRect(new RectF(startX, y - 35, width - 90, y + 25), 10, 10, amtBg);
+                      Paint amtBox = new Paint();
+                      amtBox.setColor(Color.parseColor("#E8F5E9"));
+                      canvas.drawRoundRect(new RectF(startX - 10, y - 42, width - 80, y + 25), 14, 14, amtBox);
 
-                      paint.setColor(Color.parseColor("#1B5E20"));
-                      paint.setTextSize(26);
-                      paint.setFakeBoldText(true);
-                      canvas.drawText("सेवा राशि :  ₹ " + amount + " /- (स्वीकृत)", startX + 20, y, paint);
+                      textPaint.setColor(Color.parseColor("#1B5E20"));
+                      textPaint.setTextSize(28);
+                      textPaint.setFakeBoldText(true);
+                      canvas.drawText("सेवा राशि :  ₹ " + amount + " /- (स्वीकृत)", startX + 15, y, textPaint);
 
-                      // PAID STAMP (Green Circular badge)
-                      Paint stampPaint = new Paint();
-                      stampPaint.setColor(Color.parseColor("#2E7D32"));
-                      stampPaint.setStyle(Paint.Style.STROKE);
-                      stampPaint.setStrokeWidth(5);
-                      canvas.drawCircle(width - 150, 680, 50, stampPaint);
+                      // Official Green Verified Stamp
+                      Paint stampCircle = new Paint();
+                      stampCircle.setColor(Color.parseColor("#2E7D32"));
+                      stampCircle.setStyle(Paint.Style.STROKE);
+                      stampCircle.setStrokeWidth(5);
+                      canvas.drawCircle(width - 165, 730, 55, stampCircle);
 
                       Paint stampText = new Paint();
                       stampText.setColor(Color.parseColor("#2E7D32"));
-                      stampText.setTextSize(22);
+                      stampText.setTextSize(24);
                       stampText.setFakeBoldText(true);
                       stampText.setTextAlign(Paint.Align.CENTER);
-                      canvas.drawText("PAID", width - 150, 678, stampText);
-                      stampText.setTextSize(12);
-                      canvas.drawText("VERIFIED", width - 150, 698, stampText);
+                      canvas.drawText("PAID", width - 165, 726, stampText);
+                      stampText.setTextSize(13);
+                      canvas.drawText("VERIFIED", width - 165, 748, stampText);
 
-                      // Footer section
-                      paint.setTextAlign(Paint.Align.LEFT);
-                      paint.setColor(Color.parseColor("#1B5E20"));
-                      paint.setTextSize(21);
-                      paint.setFakeBoldText(true);
-                      canvas.drawText("व्यवस्थापक : अतुल (सुपुत्र: श्री राज कुमार)", 80, 840, paint);
-                      paint.setColor(Color.parseColor("#555555"));
-                      paint.setTextSize(19);
-                      paint.setFakeBoldText(false);
-                      canvas.drawText("हेल्पलाइन    : +91 97804-75164", 80, 875, paint);
+                      // Footer Authority
+                      textPaint.setTextAlign(Paint.Align.LEFT);
+                      textPaint.setColor(Color.parseColor("#1B5E20"));
+                      textPaint.setTextSize(23);
+                      textPaint.setFakeBoldText(true);
+                      canvas.drawText("व्यवस्थापक : अतुल (सुपुत्र: श्री राज कुमार)", 80, 910, textPaint);
+                      textPaint.setColor(Color.parseColor("#555555"));
+                      textPaint.setTextSize(20);
+                      textPaint.setFakeBoldText(false);
+                      canvas.drawText("हेल्पलाइन    : +91 97804-75164", 80, 950, textPaint);
 
-                      // Bottom Blessings
-                      paint.setTextAlign(Paint.Align.CENTER);
-                      paint.setColor(Color.parseColor("#B71C1C"));
-                      paint.setTextSize(26);
-                      paint.setFakeBoldText(true);
-                      canvas.drawText("॥ जय माता दी ॥", width / 2, 970, paint);
+                      // Blessings & Disclaimer
+                      textPaint.setTextAlign(Paint.Align.CENTER);
+                      textPaint.setColor(Color.parseColor("#B71C1C"));
+                      textPaint.setTextSize(28);
+                      textPaint.setFakeBoldText(true);
+                      canvas.drawText("॥ जय माता दी ॥", width / 2, 1050, textPaint);
 
-                      paint.setColor(Color.parseColor("#888888"));
-                      paint.setTextSize(15);
-                      paint.setFakeBoldText(false);
-                      canvas.drawText("यह एक अधिकृत कम्प्यूटरीकृत डिजिटल रसीद है।", width / 2, 1010, paint);
+                      textPaint.setColor(Color.parseColor("#777777"));
+                      textPaint.setTextSize(16);
+                      textPaint.setFakeBoldText(false);
+                      canvas.drawText("यह एक अधिकृत कम्प्यूटरीकृत डिजिटल रसीद है।", width / 2, 1090, textPaint);
 
-                      // Save Bitmap
+                      // Save to app cache
                       File cacheDir = getCacheDir();
-                      lastReceiptFile = new File(cacheDir, "sewa_colour_receipt.png");
+                      lastReceiptFile = new File(cacheDir, "baal_sewak_receipt.png");
                       FileOutputStream fos = new FileOutputStream(lastReceiptFile);
                       bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
                       fos.flush();
@@ -832,20 +879,22 @@ jobs:
                   }
               }
 
-              private void shareColourfulReceipt() {
+              private void shareColourfulPhotoReceipt() {
                   if (lastReceiptFile == null || !lastReceiptFile.exists()) {
-                      Toast.makeText(this, "पहले सदस्य की सेवा दर्ज करें!", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, "पहले सदस्य की सेवा दर्ज करें ताकि रसीद बने!", Toast.LENGTH_SHORT).show();
                       return;
                   }
 
                   try {
-                      Intent intent = new Intent(Intent.ACTION_SEND);
-                      intent.setType("text/plain");
-                      intent.putExtra(Intent.EXTRA_SUBJECT, "बाल सेवक सभा - डिजिटल रसीद");
-                      intent.putExtra(Intent.EXTRA_TEXT, lastReceiptText);
-                      startActivity(Intent.createChooser(intent, "रसीद शेयर करें (WhatsApp)"));
+                      Uri imageUri = Uri.parse("content://com.baalsewaksabha.app.provider/baal_sewak_receipt.png");
+                      Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                      shareIntent.setType("image/png");
+                      shareIntent.putExtra(Intent.EXTRA_STREAM, imageUri);
+                      shareIntent.putExtra(Intent.EXTRA_TEXT, lastReceiptCaption);
+                      shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                      startActivity(Intent.createChooser(shareIntent, "रंग-बिरंगी रसीद भेजें (WhatsApp)"));
                   } catch (Exception e) {
-                      Toast.makeText(this, "शेयर करने में समस्या आई!", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, "फोटो शेयर करने में समस्या आई!", Toast.LENGTH_SHORT).show();
                   }
               }
 
@@ -907,26 +956,26 @@ jobs:
           }
           EOF
 
-          # Toolchain Discovery
+          # 9. Toolchain Discovery
           SDK_DIR="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           ANDROID_JAR=$(find "$SDK_DIR/platforms" -name "android.jar" | sort -V | tail -n 1)
           BT_DIR=$(find "$SDK_DIR/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
 
-          # AAPT Package
+          # 10. AAPT Package
           "$BT_DIR/aapt" package -f -m -J project/src -M project/AndroidManifest.xml -S project/res -I "$ANDROID_JAR" -F project/bin/unaligned.apk
 
-          # Java Compilation
+          # 11. Java Compilation
           javac -source 1.8 -target 1.8 -d project/bin -cp "$ANDROID_JAR" $(find project/src -name "*.java")
 
-          # D8 DEX
+          # 12. D8 DEX
           "$BT_DIR/d8" --output project/bin/ $(find project/bin -name "*.class")
 
-          # Add DEX
+          # 13. Add DEX into APK
           cd project/bin
           zip -u unaligned.apk classes.dex
           cd ../..
 
-          # Zipalign & Sign
+          # 14. Zipalign & Sign
           "$BT_DIR/zipalign" -f -p 4 project/bin/unaligned.apk project/bin/aligned.apk
 
           keytool -genkeypair -v -keystore test.keystore -alias test -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=BaalSewakSabha, OU=App, O=Org, L=Amritsar, S=Punjab, C=IN"
