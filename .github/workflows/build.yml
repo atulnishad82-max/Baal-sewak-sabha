@@ -19,26 +19,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2'
 
-      - name: Generate Working Native Project
+      - name: Generate Working Project
         run: |
-          mkdir -p gradle/wrapper
-          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
-          networkTimeout=10000
-          validateDistributionUrl=true
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
-
-          # Download real gradlew wrapper script
-          curl -s -o gradlew https://raw.githubusercontent.com/gradle/gradle/master/gradlew
-          chmod +x gradlew
-
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -81,8 +68,8 @@ jobs:
                   applicationId "com.baalsewaksabha.app"
                   minSdk 21
                   targetSdk 34
-                  versionCode 15
-                  versionName "15.0"
+                  versionCode 16
+                  versionName "16.0"
               }
               buildTypes {
                   release {
@@ -607,10 +594,8 @@ jobs:
             cp -f "$LOGO" app/src/main/res/drawable/ic_launcher.png
           fi
 
-      - name: Build APK With Official Gradle
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+      - name: Build APK With System Gradle
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
